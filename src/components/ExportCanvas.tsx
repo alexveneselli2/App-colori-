@@ -2,7 +2,6 @@ import { forwardRef } from 'react'
 import {
   getMonthCells,
   getWeekDays,
-  getYearColumns,
   toISO,
   MONTH_SHORT,
   MONTH_FULL,
@@ -12,8 +11,6 @@ import {
 import { MOOD_PALETTE } from '../constants/moods'
 import type { ViewMode, ExportTheme, ExportStyle, ExportFormat } from '../types'
 
-// ---- Canvas dimensions (CSS px) ----
-// Captured at 3× pixel ratio → 1080×1080 feed / 1080×1920 story
 export const CANVAS_W       = 360
 export const CANVAS_H_FEED  = 360
 export const CANVAS_H_STORY = 640
@@ -29,132 +26,126 @@ interface Props {
   month: number
 }
 
-function palette(theme: ExportTheme) {
-  return theme === 'light'
-    ? { bg: '#F8F6F2', fg: '#181714', muted: '#8A8680', empty: '#ECEAE5', line: '#E0DCD5' }
-    : { bg: '#0E0D0C', fg: '#F0EDE8', muted: '#5A5550', empty: '#1E1D1B', line: '#2A2826' }
+function needsLight(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55
 }
 
-// Only return palette entries that appear in the entries map
+function pal(theme: ExportTheme) {
+  return theme === 'light'
+    ? { bg: '#F7F4EF', fg: '#181714', muted: '#8A8680', empty: '#E8E4DC', line: '#DED9D1' }
+    : { bg: '#0E0D0C', fg: '#F0EDE8', muted: '#5A5550', empty: '#1E1D1B', line: '#2E2B28' }
+}
+
+const FONT = 'Inter, system-ui, -apple-system, sans-serif'
+
 function getActiveMoods(entriesMap: Map<string, string>) {
-  const usedHexes = new Set(entriesMap.values())
-  return MOOD_PALETTE.filter(m => usedHexes.has(m.hex))
+  const used = new Set(entriesMap.values())
+  return MOOD_PALETTE.filter(m => used.has(m.hex))
 }
 
 const ExportCanvas = forwardRef<HTMLDivElement, Props>(
   ({ entriesMap, mode, theme, style, format, username, year, month }, ref) => {
-    const { bg, fg, muted, empty, line } = palette(theme)
-    const canvasH  = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
-    const labeled  = style === 'labeled'
-    const isStory  = format === 'story'
+    const { bg, fg, muted, empty, line } = pal(theme)
+    const canvasH = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
+    const isStory = format === 'story'
+    const labeled = style === 'labeled'
+    const PAD     = isStory ? 30 : 26
 
-    const getColor = (d: Date | null) =>
-      d ? (entriesMap.get(toISO(d)) ?? null) : null
+    const getColor = (d: Date | null) => d ? (entriesMap.get(toISO(d)) ?? null) : null
+    const getMoodLabel = (hex: string | null) =>
+      hex ? (MOOD_PALETTE.find(m => m.hex === hex)?.label ?? null) : null
 
-    // ---- Period label ----
-    const getPeriodLabel = () => {
+    // ── HEADER ──────────────────────────────────────────────────────────────
+    const getSubtitle = () => {
       if (mode === 'weekly') {
         const days = getWeekDays(new Date())
-        return `${days[0].getDate()}–${days[6].getDate()} ${MONTH_FULL[days[0].getMonth()]} ${days[0].getFullYear()}`
+        return `Settimana · ${days[0].getDate()}–${days[6].getDate()} ${MONTH_SHORT[days[0].getMonth()]} ${days[0].getFullYear()}`
       }
       if (mode === 'monthly') return `${MONTH_FULL[month]} ${year}`
-      return `${year}`
+      return `Anno ${year}`
     }
 
-    const FONT = 'Inter, system-ui, -apple-system, sans-serif'
+    const HEADER_H = isStory ? 88 : 62
+    const FOOTER_H = isStory ? 72 : 52
+    const CONTENT_H = canvasH - HEADER_H - FOOTER_H
 
-    // ---- HEADER ----
-    const renderHeader = () => {
-      const headerPad = isStory ? '28px 32px 0' : '22px 28px 0'
-      return (
-        <div style={{
-          padding: headerPad,
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-        }}>
-          {/* Wordmark */}
+    const Header = () => (
+      <div style={{
+        height: HEADER_H,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        padding: `0 ${PAD}px 14px`,
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
           <span style={{
             fontSize: isStory ? 28 : 22,
             fontWeight: 700,
-            letterSpacing: '-0.04em',
+            letterSpacing: '-0.05em',
             color: fg,
             fontFamily: FONT,
             lineHeight: 1,
-          }}>
-            IRIDE
-          </span>
-          {/* Period */}
+          }}>IRIDE</span>
           <span style={{
-            fontSize: isStory ? 11 : 9,
+            fontSize: isStory ? 9 : 8,
             fontWeight: 500,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.09em',
             textTransform: 'uppercase',
             color: muted,
             fontFamily: FONT,
           }}>
-            {getPeriodLabel()}
+            {getSubtitle()}
           </span>
         </div>
-      )
-    }
+        <div style={{ height: 1, backgroundColor: line }} />
+      </div>
+    )
 
-    // ---- FOOTER ----
-    const renderFooter = () => {
+    // ── FOOTER ──────────────────────────────────────────────────────────────
+    const Footer = () => {
       const activeMoods = labeled ? getActiveMoods(entriesMap).slice(0, isStory ? 12 : 6) : []
-      const footPad = isStory ? '0 32px 28px' : '0 28px 20px'
-
       return (
-        <div style={{ padding: footPad }}>
-          {/* Divider */}
-          <div style={{ height: 1, backgroundColor: line, marginBottom: isStory ? 16 : 12 }} />
-
+        <div style={{
+          height: FOOTER_H,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          padding: `12px ${PAD}px 0`,
+          flexShrink: 0,
+        }}>
+          <div style={{ height: 1, backgroundColor: line, marginBottom: 10 }} />
           <div style={{
             display: 'flex',
-            alignItems: labeled && activeMoods.length > 0 ? 'flex-start' : 'center',
+            alignItems: 'flex-start',
             justifyContent: 'space-between',
-            gap: 12,
+            gap: 8,
           }}>
-            {/* Username */}
             <span style={{
-              fontSize: isStory ? 10 : 8,
+              fontSize: isStory ? 9 : 8,
               fontWeight: 500,
-              letterSpacing: '0.05em',
+              letterSpacing: '0.07em',
               color: muted,
               fontFamily: FONT,
               flexShrink: 0,
+              marginTop: 1,
             }}>
               {username ? `@${username}` : 'iride.app'}
             </span>
-
-            {/* Color legend */}
             {labeled && activeMoods.length > 0 && (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: isStory ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
-                gap: '4px 12px',
-                flex: 1,
-                justifyItems: 'end',
+                gridTemplateColumns: `repeat(${isStory ? 4 : 3}, auto)`,
+                gap: '3px 10px',
+                justifyItems: 'start',
               }}>
                 {activeMoods.map(mood => (
-                  <div key={mood.hex} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}>
-                    <div style={{
-                      width: isStory ? 8 : 6,
-                      height: isStory ? 8 : 6,
-                      borderRadius: '50%',
-                      backgroundColor: mood.hex,
-                      flexShrink: 0,
-                    }} />
-                    <span style={{
-                      fontSize: isStory ? 8.5 : 7,
-                      color: muted,
-                      fontFamily: FONT,
-                      whiteSpace: 'nowrap',
-                    }}>
+                  <div key={mood.hex} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: mood.hex }} />
+                    <span style={{ fontSize: isStory ? 8 : 7, color: muted, fontFamily: FONT, whiteSpace: 'nowrap' }}>
                       {mood.label}
                     </span>
                   </div>
@@ -166,64 +157,134 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       )
     }
 
-    // ---- WEEKLY ----
-    const renderWeekly = () => {
-      const days   = getWeekDays(new Date())
-      const padH   = isStory ? 32 : 28
-      const gap    = isStory ? 8 : 6
-      const cellSz = Math.floor((CANVAS_W - padH * 2 - gap * 6) / 7)
+    // ── WEEKLY FEED: 2 rows of tall colored rectangles (4 + 3) ──────────────
+    const WeeklyFeed = () => {
+      const days  = getWeekDays(new Date())
+      const gap   = 8
+      const padH  = PAD
+      const innerW = CANVAS_W - padH * 2
+      const w4    = Math.floor((innerW - gap * 3) / 4)
+      const w3    = Math.floor((innerW - gap * 2) / 3)
+      const rowH  = Math.floor((CONTENT_H - gap - 4) / 2)
+
+      const Cell = ({ day, w, dayIdx }: { day: Date; w: number; dayIdx: number }) => {
+        const color = getColor(day)
+        const cellBg = color ?? empty
+        const light = color ? needsLight(color) : false
+        const textColor = (a: number) => color
+          ? (light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`)
+          : muted
+        return (
+          <div style={{
+            width: w, height: rowH,
+            borderRadius: 16,
+            backgroundColor: cellBg,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: labeled ? 'space-between' : 'center',
+            alignItems: labeled ? 'flex-start' : 'center',
+            padding: labeled ? '12px 12px' : undefined,
+            flexShrink: 0,
+          }}>
+            {labeled && (
+              <>
+                <span style={{ fontSize: 10, fontWeight: 700, color: textColor(0.8), fontFamily: FONT, letterSpacing: '0.03em' }}>
+                  {DAY_SHORT[dayIdx].slice(0, 3).toUpperCase()}
+                </span>
+                <div>
+                  {color && getMoodLabel(color) && (
+                    <p style={{ fontSize: 8, color: textColor(0.65), fontFamily: FONT, marginBottom: 2 }}>
+                      {getMoodLabel(color)}
+                    </p>
+                  )}
+                  <p style={{ fontSize: 10, color: textColor(0.5), fontFamily: FONT }}>
+                    {day.getDate()}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      }
 
       return (
         <div style={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
           justifyContent: 'center',
           padding: `0 ${padH}px`,
-          gap: 6,
+          gap,
         }}>
-          {labeled && (
-            <div style={{ display: 'flex', gap, width: '100%', justifyContent: 'center', marginBottom: 4 }}>
-              {DAY_SHORT.map((d, i) => (
-                <div key={i} style={{
-                  width: cellSz, textAlign: 'center',
-                  fontSize: 8, color: muted, fontFamily: FONT,
-                  letterSpacing: '0.05em', textTransform: 'uppercase',
-                }}>
-                  {d}
-                </div>
-              ))}
-            </div>
-          )}
           <div style={{ display: 'flex', gap }}>
-            {days.map((day, i) => {
-              const color = getColor(day)
-              return (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                  <div style={{
-                    width: cellSz, height: cellSz, borderRadius: 10,
-                    backgroundColor: color ?? empty,
-                  }} />
-                  {labeled && (
-                    <span style={{ fontSize: 7, color: muted, fontFamily: FONT }}>
-                      {day.getDate()}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
+            {days.slice(0, 4).map((day, i) => <Cell key={i} day={day} w={w4} dayIdx={i} />)}
+          </div>
+          <div style={{ display: 'flex', gap, justifyContent: 'center' }}>
+            {days.slice(4, 7).map((day, i) => <Cell key={i} day={day} w={w3} dayIdx={i + 4} />)}
           </div>
         </div>
       )
     }
 
-    // ---- MONTHLY ----
-    const renderMonthly = () => {
-      const cells  = getMonthCells(year, month)
-      const padH   = isStory ? 32 : 28
-      const gap    = isStory ? 5 : 4
+    // ── WEEKLY STORY: 7 full-width horizontal bars ───────────────────────────
+    const WeeklyStory = () => {
+      const days = getWeekDays(new Date())
+      const gap  = 8
+      const padH = PAD
+      const barH = Math.floor((CONTENT_H - gap * 6 - 8) / 7)
+
+      return (
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: `4px ${padH}px 0`,
+          gap,
+        }}>
+          {days.map((day, i) => {
+            const color = getColor(day)
+            const cellBg = color ?? empty
+            const light = color ? needsLight(color) : false
+            const textColor = (a: number) => color
+              ? (light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`)
+              : muted
+
+            return (
+              <div key={i} style={{
+                height: barH,
+                borderRadius: 14,
+                backgroundColor: cellBg,
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 18px',
+                justifyContent: 'space-between',
+                flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: textColor(0.85), fontFamily: FONT, letterSpacing: '0.02em' }}>
+                  {DAY_SHORT[i]}
+                </span>
+                {labeled && color && getMoodLabel(color) ? (
+                  <span style={{ fontSize: 9, color: textColor(0.6), fontFamily: FONT }}>
+                    {getMoodLabel(color)}
+                  </span>
+                ) : null}
+                <span style={{ fontSize: 11, color: textColor(0.45), fontFamily: FONT }}>
+                  {day.getDate()}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )
+    }
+
+    // ── MONTHLY FEED: full calendar grid ────────────────────────────────────
+    const MonthlyFeed = () => {
+      const cells = getMonthCells(year, month)
+      const gap   = 5
+      const padH  = PAD
       const cellSz = Math.floor((CANVAS_W - padH * 2 - gap * 6) / 7)
+      const labelH = labeled ? 18 : 0
 
       return (
         <div style={{
@@ -232,21 +293,66 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           flexDirection: 'column',
           justifyContent: 'center',
           padding: `0 ${padH}px`,
-          gap: 4,
         }}>
           {labeled && (
             <div style={{
               display: 'grid',
               gridTemplateColumns: `repeat(7, ${cellSz}px)`,
               gap,
-              marginBottom: 4,
+              height: labelH,
+              marginBottom: gap,
             }}>
               {DAY_INITIAL.map((d, i) => (
-                <div key={i} style={{
-                  textAlign: 'center', fontSize: 7,
-                  color: muted, fontFamily: FONT,
-                  letterSpacing: '0.06em', textTransform: 'uppercase',
-                }}>
+                <div key={i} style={{ textAlign: 'center', fontSize: 7, color: muted, fontFamily: FONT, letterSpacing: '0.06em' }}>
+                  {d}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap }}>
+            {cells.map((day, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <div style={{
+                  width: cellSz, height: cellSz, borderRadius: 5,
+                  backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
+                }} />
+                {labeled && day && (
+                  <span style={{ fontSize: 6, color: muted, fontFamily: FONT }}>{day.getDate()}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // ── MONTHLY STORY: bigger calendar using all vertical space ─────────────
+    const MonthlyStory = () => {
+      const cells  = getMonthCells(year, month)
+      const gap    = 7
+      const padH   = PAD
+      const cellSz = Math.floor((CANVAS_W - padH * 2 - gap * 6) / 7)
+      const labelH = labeled ? 22 : 0
+      const rows   = Math.ceil(cells.length / 7)
+      const rowH   = Math.floor((CONTENT_H - labelH - gap * (rows + 1)) / rows)
+
+      return (
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          padding: `0 ${padH}px`,
+          gap: gap,
+        }}>
+          {labeled && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(7, ${cellSz}px)`,
+              gap,
+            }}>
+              {DAY_INITIAL.map((d, i) => (
+                <div key={i} style={{ textAlign: 'center', fontSize: 9, color: muted, fontFamily: FONT }}>
                   {d}
                 </div>
               ))}
@@ -255,116 +361,117 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           <div style={{
             display: 'grid',
             gridTemplateColumns: `repeat(7, ${cellSz}px)`,
+            gridAutoRows: rowH,
             gap,
           }}>
             {cells.map((day, i) => (
               <div key={i} style={{
-                width: cellSz, height: cellSz, borderRadius: 4,
+                borderRadius: 7,
                 backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
-              }} />
-            ))}
-          </div>
-        </div>
-      )
-    }
-
-    // ---- YEARLY: contribution graph (feed) or stacked months (story) ----
-    const renderYearly = () =>
-      isStory ? renderYearlyStacked() : renderYearlyGraph()
-
-    const renderYearlyGraph = () => {
-      const cols   = getYearColumns(year)
-      const cellSz = 4
-      const gap    = 1.5
-      const totalW = cols.length * (cellSz + gap) - gap
-      const padH   = (CANVAS_W - totalW) / 2
-
-      const monthLabels: { label: string; x: number }[] = []
-      cols.forEach((col, ci) => {
-        const first = col.find(d => d !== null)
-        if (first && first.getDate() <= 7) {
-          const mn = MONTH_SHORT[first.getMonth()]
-          if (!monthLabels.find(ml => ml.label === mn)) {
-            monthLabels.push({ label: mn, x: padH + ci * (cellSz + gap) })
-          }
-        }
-      })
-
-      return (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          {labeled && (
-            <div style={{ position: 'relative', width: CANVAS_W, height: 14, marginBottom: 5 }}>
-              {monthLabels.map(({ label, x }) => (
-                <span key={label} style={{
-                  position: 'absolute', left: x,
-                  fontSize: 7, color: muted, fontFamily: FONT,
-                }}>
-                  {label}
-                </span>
-              ))}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap }}>
-            {cols.map((col, ci) => (
-              <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap }}>
-                {col.map((day, ri) => (
-                  <div key={ri} style={{
-                    width: cellSz, height: cellSz, borderRadius: 1,
-                    backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
-                  }} />
-                ))}
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                padding: labeled ? '0 0 4px 4px' : undefined,
+              }}>
+                {labeled && day && (
+                  <span style={{ fontSize: 7, color: getColor(day) ? (needsLight(getColor(day)!) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.4)') : muted, fontFamily: FONT }}>
+                    {day.getDate()}
+                  </span>
+                )}
               </div>
             ))}
           </div>
-          {!labeled && (
-            <p style={{
-              marginTop: 10, fontSize: 8, color: muted, letterSpacing: '0.14em',
-              textTransform: 'uppercase', fontFamily: FONT,
-            }}>{year}</p>
-          )}
         </div>
       )
     }
 
-    const renderYearlyStacked = () => {
-      const padH   = 32
-      const gap    = 3
-      const mGap   = isStory ? 10 : 7
-      const cellSz = Math.floor((CANVAS_W - padH * 2 - gap * 6) / 7)
+    // ── YEARLY FEED: 4 cols × 3 rows of mini months ─────────────────────────
+    const YearlyFeed = () => {
+      const cols = 4, rows = 3
+      const hGap = 10, vGap = 10
+      const padH  = PAD
+      const monthW = Math.floor((CANVAS_W - padH * 2 - (cols - 1) * hGap) / cols)
+      const monthH = Math.floor((CONTENT_H - (rows - 1) * vGap) / rows)
+      const nameH  = 14
+      const cGap   = 1.5
+      const cellSz = Math.floor((monthW - 6 * cGap) / 7)
 
       return (
         <div style={{
           flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: `0 ${padH}px`,
-          overflow: 'hidden',
-          gap: mGap,
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, ${monthW}px)`,
+          gridTemplateRows: `repeat(${rows}, ${monthH}px)`,
+          gap: `${vGap}px ${hGap}px`,
+          padding: `4px ${padH}px 0`,
         }}>
           {Array.from({ length: 12 }, (_, m) => {
             const cells = getMonthCells(year, m)
             return (
-              <div key={m}>
-                {labeled && (
-                  <p style={{
-                    fontSize: 7.5, color: muted,
-                    fontFamily: FONT, marginBottom: 3,
-                    letterSpacing: '0.05em', textTransform: 'uppercase',
-                  }}>
-                    {MONTH_SHORT[m]}
-                  </p>
-                )}
+              <div key={m} style={{ overflow: 'hidden' }}>
+                <p style={{
+                  fontSize: 7.5, fontWeight: 600, color: muted,
+                  fontFamily: FONT, marginBottom: 4,
+                  letterSpacing: '0.09em', textTransform: 'uppercase',
+                  height: nameH,
+                }}>
+                  {MONTH_SHORT[m]}
+                </p>
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: `repeat(7, ${cellSz}px)`,
-                  gap,
+                  gap: cGap,
+                }}>
+                  {cells.map((day, i) => (
+                    <div key={i} style={{
+                      width: cellSz, height: cellSz, borderRadius: 1.5,
+                      backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
+                    }} />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )
+    }
+
+    // ── YEARLY STORY: 3 cols × 4 rows with bigger cells ─────────────────────
+    const YearlyStory = () => {
+      const cols = 3, rows = 4
+      const hGap = 14, vGap = 14
+      const padH  = PAD
+      const monthW = Math.floor((CANVAS_W - padH * 2 - (cols - 1) * hGap) / cols)
+      const monthH = Math.floor((CONTENT_H - (rows - 1) * vGap) / rows)
+      const nameH  = 16
+      const cGap   = 2
+      const cellSz = Math.floor((monthW - 6 * cGap) / 7)
+
+      return (
+        <div style={{
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, ${monthW}px)`,
+          gridTemplateRows: `repeat(${rows}, ${monthH}px)`,
+          gap: `${vGap}px ${hGap}px`,
+          padding: `4px ${padH}px 0`,
+        }}>
+          {Array.from({ length: 12 }, (_, m) => {
+            const cells = getMonthCells(year, m)
+            return (
+              <div key={m} style={{ overflow: 'hidden' }}>
+                <p style={{
+                  fontSize: 8.5, fontWeight: 600, color: muted,
+                  fontFamily: FONT, marginBottom: 5,
+                  letterSpacing: '0.09em', textTransform: 'uppercase',
+                  height: nameH,
+                }}>
+                  {MONTH_SHORT[m]}
+                </p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(7, ${cellSz}px)`,
+                  gap: cGap,
                 }}>
                   {cells.map((day, i) => (
                     <div key={i} style={{
@@ -391,22 +498,16 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           flexDirection: 'column',
           overflow: 'hidden',
           fontFamily: FONT,
-          position: 'relative',
         }}
       >
-        {renderHeader()}
-
-        {/* Divider below header */}
-        <div style={{ height: 1, backgroundColor: line, margin: isStory ? '16px 32px 0' : '12px 28px 0' }} />
-
-        {/* Main content */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {mode === 'weekly'  && renderWeekly()}
-          {mode === 'monthly' && renderMonthly()}
-          {mode === 'yearly'  && renderYearly()}
-        </div>
-
-        {renderFooter()}
+        <Header />
+        {mode === 'weekly'  && !isStory && <WeeklyFeed />}
+        {mode === 'weekly'  &&  isStory && <WeeklyStory />}
+        {mode === 'monthly' && !isStory && <MonthlyFeed />}
+        {mode === 'monthly' &&  isStory && <MonthlyStory />}
+        {mode === 'yearly'  && !isStory && <YearlyFeed />}
+        {mode === 'yearly'  &&  isStory && <YearlyStory />}
+        <Footer />
       </div>
     )
   }

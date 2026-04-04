@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/useAuthStore'
@@ -12,18 +12,21 @@ import Layout from './components/Layout'
 
 export default function App() {
   const { profile, loading, setLoading, fetchProfile, setProfile } = useAuthStore()
+  // Track whether we have an active Supabase session even if profile isn't created yet.
+  // When true and profile is null → redirect to onboarding (e.g. after email confirmation).
+  const [hasSession, setHasSession] = useState(false)
 
   useEffect(() => {
-    // Demo mode: skip Supabase entirely
     if (isDemoMode()) {
-      const profile = getDemoProfile()
-      if (profile) setProfile(profile)
+      const p = getDemoProfile()
+      if (p) setProfile(p)
       setLoading(false)
       return
     }
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
+        setHasSession(true)
         await fetchProfile(session.user.id)
       }
       setLoading(false)
@@ -32,9 +35,11 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
+          setHasSession(false)
           setProfile(null)
           setLoading(false)
         } else if (session?.user) {
+          setHasSession(true)
           await fetchProfile(session.user.id)
           setLoading(false)
         }
@@ -47,10 +52,11 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-surface">
-        <div
-          className="w-5 h-5 rounded-full animate-ping"
-          style={{ backgroundColor: '#3A86FF', opacity: 0.7 }}
-        />
+        <div style={{
+          width: 8, height: 8, borderRadius: '50%',
+          backgroundColor: '#FFD000',
+          animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+        }} />
       </div>
     )
   }
@@ -61,7 +67,8 @@ export default function App() {
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="*" element={<Navigate to="/auth" replace />} />
+          {/* After email confirmation: session exists but no profile → go to onboarding */}
+          <Route path="*" element={<Navigate to={hasSession ? '/onboarding' : '/auth'} replace />} />
         </Routes>
       </HashRouter>
     )
