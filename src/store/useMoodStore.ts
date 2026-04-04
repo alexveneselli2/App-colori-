@@ -57,7 +57,12 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     set({ todayEntry: (data as MoodEntry | null) ?? null })
   },
 
-  saveTodayEntry: async (userId, colorHex, moodLabel, source) => {
+  saveTodayEntry: async (
+    userId: string,
+    colorHex: string,
+    moodLabel: string | null,
+    source: 'palette' | 'custom'
+  ) => {
     if (get().todayEntry) {
       return { error: 'Hai già registrato il tuo colore per oggi.' }
     }
@@ -72,7 +77,7 @@ export const useMoodStore = create<MoodState>((set, get) => ({
         locked:     true,
       })
       if (!entry) return { error: 'Hai già registrato il tuo colore per oggi.' }
-      set((s) => ({ todayEntry: entry as MoodEntry, entries: [entry as MoodEntry, ...s.entries] }))
+      set((s: MoodState) => ({ todayEntry: entry as MoodEntry, entries: [entry as MoodEntry, ...s.entries] }))
       return { error: null }
     }
 
@@ -95,7 +100,7 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     }
 
     const entry = data as MoodEntry
-    set((s) => ({ todayEntry: entry, entries: [entry, ...s.entries] }))
+    set((s: MoodState) => ({ todayEntry: entry, entries: [entry, ...s.entries] }))
     return { error: null }
   },
 }))
