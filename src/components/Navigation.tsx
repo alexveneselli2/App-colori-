@@ -33,6 +33,18 @@ const tabs = [
     ),
   },
   {
+    to: '/stats',
+    label: 'Analisi',
+    icon: (active: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 15 L3 10 L7 10 L7 15 M8.5 15 L8.5 6 L12.5 6 L12.5 15 M14 15 L14 12 L18 12 L18 15"
+          fill={active ? 'currentColor' : 'none'}
+          stroke="currentColor" strokeWidth="1.6"
+          strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
     to: '/export',
     label: 'Esporta',
     icon: (_active: boolean) => (
@@ -55,8 +67,8 @@ export default function Navigation() {
       width: '100%',
       maxWidth: '28rem',
       paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)',
-      paddingLeft: 20,
-      paddingRight: 20,
+      paddingLeft: 16,
+      paddingRight: 16,
       paddingTop: 8,
       zIndex: 50,
       pointerEvents: 'none',
@@ -93,9 +105,9 @@ export default function Navigation() {
               }}>
                 {tab.icon(isActive)}
                 <span style={{
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: 500,
-                  letterSpacing: '0.09em',
+                  letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   fontFamily: 'Inter, system-ui, sans-serif',
                 }}>

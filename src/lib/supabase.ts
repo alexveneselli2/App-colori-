@@ -1,17 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL     as string | undefined
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-if (!supabaseUrl || supabaseUrl === 'https://your-project-id.supabase.co') {
-  console.warn(
-    '[Iride] Supabase non configurato.\n' +
-    'Copia .env.example in .env.local e inserisci le credenziali del tuo progetto.\n' +
-    'Vedi README.md per le istruzioni.'
+export function isSupabaseConfigured(): boolean {
+  return !!(
+    supabaseUrl &&
+    supabaseUrl !== 'https://your-project-id.supabase.co' &&
+    supabaseAnonKey &&
+    supabaseAnonKey !== 'your-anon-public-key-here'
   )
 }
 
+if (!isSupabaseConfigured()) {
+  console.warn('[Iride] Supabase non configurato. Usa la modalità demo oppure aggiungi le credenziali in .env.local')
+}
+
 export const supabase = createClient(
-  supabaseUrl ?? 'https://placeholder.supabase.co',
-  supabaseAnonKey ?? 'placeholder-key'
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
 )

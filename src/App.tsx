@@ -8,6 +8,7 @@ import Onboarding from './pages/Onboarding'
 import Today from './pages/Today'
 import History from './pages/History'
 import Export from './pages/Export'
+import Stats from './pages/Stats'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Today />} />
           <Route path="history" element={<History />} />
+          <Route path="stats" element={<Stats />} />
           <Route path="export" element={<Export />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
