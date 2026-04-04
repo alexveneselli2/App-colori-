@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, getDemoProfile, exitDemo } from '../lib/demo'
 import type { Profile } from '../types'
 
 interface AuthState {
@@ -19,6 +20,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (loading) => set({ loading }),
 
   fetchProfile: async (userId) => {
+    if (isDemoMode()) {
+      const profile = getDemoProfile()
+      if (profile) set({ profile })
+      return profile
+    }
+
     const { data } = await supabase
       .from('profiles')
       .select('*')
@@ -32,6 +39,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signOut: async () => {
+    if (isDemoMode()) {
+      exitDemo()
+      set({ profile: null })
+      return
+    }
     await supabase.auth.signOut()
     set({ profile: null })
   },

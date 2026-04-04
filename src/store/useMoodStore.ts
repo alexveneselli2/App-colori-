@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { todayISO } from '../lib/dateUtils'
+import {
+  isDemoMode,
+  getDemoEntries,
+  getDemoTodayEntry,
+  saveDemoEntry,
+  DEMO_USER_ID,
+} from '../lib/demo'
 import type { MoodEntry } from '../types'
 
 interface MoodState {
@@ -23,6 +30,10 @@ export const useMoodStore = create<MoodState>((set, get) => ({
   loading: false,
 
   fetchEntries: async (userId) => {
+    if (isDemoMode()) {
+      set({ entries: getDemoEntries() as MoodEntry[], loading: false })
+      return
+    }
     set({ loading: true })
     const { data } = await supabase
       .from('mood_entries')
@@ -33,6 +44,10 @@ export const useMoodStore = create<MoodState>((set, get) => ({
   },
 
   fetchTodayEntry: async (userId) => {
+    if (isDemoMode()) {
+      set({ todayEntry: (getDemoTodayEntry() as MoodEntry | null) ?? null })
+      return
+    }
     const { data } = await supabase
       .from('mood_entries')
       .select('*')
@@ -43,9 +58,22 @@ export const useMoodStore = create<MoodState>((set, get) => ({
   },
 
   saveTodayEntry: async (userId, colorHex, moodLabel, source) => {
-    // Client-side guard
     if (get().todayEntry) {
       return { error: 'Hai già registrato il tuo colore per oggi.' }
+    }
+
+    if (isDemoMode()) {
+      const entry = saveDemoEntry({
+        user_id:    DEMO_USER_ID,
+        date:       todayISO(),
+        color_hex:  colorHex,
+        mood_label: moodLabel,
+        source,
+        locked:     true,
+      })
+      if (!entry) return { error: 'Hai già registrato il tuo colore per oggi.' }
+      set((s) => ({ todayEntry: entry as MoodEntry, entries: [entry as MoodEntry, ...s.entries] }))
+      return { error: null }
     }
 
     const { data, error } = await supabase
@@ -62,7 +90,6 @@ export const useMoodStore = create<MoodState>((set, get) => ({
       .single()
 
     if (error) {
-      // 23505 = unique_violation (already inserted today)
       if (error.code === '23505') return { error: 'Hai già registrato il tuo colore per oggi.' }
       return { error: error.message }
     }

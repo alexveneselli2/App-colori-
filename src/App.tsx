@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/useAuthStore'
+import { isDemoMode, getDemoProfile } from './lib/demo'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
 import Today from './pages/Today'
@@ -13,6 +14,14 @@ export default function App() {
   const { profile, loading, setLoading, fetchProfile, setProfile } = useAuthStore()
 
   useEffect(() => {
+    // Demo mode: skip Supabase entirely
+    if (isDemoMode()) {
+      const profile = getDemoProfile()
+      if (profile) setProfile(profile)
+      setLoading(false)
+      return
+    }
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         await fetchProfile(session.user.id)

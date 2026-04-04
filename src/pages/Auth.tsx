@@ -2,15 +2,24 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
+import { enterDemo, getDemoProfile } from '../lib/demo'
 
 export default function Auth() {
   const navigate = useNavigate()
-  const { fetchProfile } = useAuthStore()
+  const { fetchProfile, setProfile, setLoading: setGlobalLoading } = useAuthStore()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const handleDemo = () => {
+    enterDemo()
+    const profile = getDemoProfile()
+    setProfile(profile)
+    setGlobalLoading(false)
+    navigate('/')
+  }
 
   const handle = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,6 +97,20 @@ export default function Auth() {
             {loading ? '···' : mode === 'login' ? 'Entra' : 'Crea il tuo profilo'}
           </button>
         </form>
+
+        {/* Demo mode */}
+        <div className="relative flex items-center gap-3">
+          <div className="flex-1 h-px bg-subtle" />
+          <span className="text-xs text-muted flex-shrink-0">oppure</span>
+          <div className="flex-1 h-px bg-subtle" />
+        </div>
+        <button
+          type="button"
+          onClick={handleDemo}
+          className="w-full py-4 border border-subtle text-muted rounded-2xl text-sm transition-all active:scale-[0.98] hover:text-foreground hover:border-foreground/30"
+        >
+          Prova il demo — senza account
+        </button>
 
         {/* Toggle login / signup */}
         <p className="text-center text-sm text-muted">
