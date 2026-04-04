@@ -9,7 +9,7 @@ import {
   DAY_SHORT,
 } from '../lib/dateUtils'
 import { MOOD_PALETTE } from '../constants/moods'
-import type { ViewMode, ExportTheme, ExportStyle, ExportFormat } from '../types'
+import type { ViewMode, ExportStyle, ExportFormat, ExportFont, ExportBg } from '../types'
 
 export const CANVAS_W       = 360
 export const CANVAS_H_FEED  = 360
@@ -17,13 +17,14 @@ export const CANVAS_H_STORY = 640
 
 interface Props {
   entriesMap: Map<string, string>
-  mode: ViewMode
-  theme: ExportTheme
-  style: ExportStyle
-  format: ExportFormat
+  mode:     ViewMode
+  bg:       ExportBg
+  style:    ExportStyle
+  format:   ExportFormat
+  font:     ExportFont
   username?: string
-  year: number
-  month: number
+  year:     number
+  month:    number
 }
 
 function needsLight(hex: string): boolean {
@@ -33,13 +34,34 @@ function needsLight(hex: string): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55
 }
 
-function pal(theme: ExportTheme) {
-  return theme === 'light'
-    ? { bg: '#F7F4EF', fg: '#181714', muted: '#8A8680', empty: '#E8E4DC', line: '#DED9D1' }
-    : { bg: '#0E0D0C', fg: '#F0EDE8', muted: '#5A5550', empty: '#1E1D1B', line: '#2E2B28' }
+function getPalette(bg: ExportBg) {
+  const isDark = bg === 'dark'
+  return isDark
+    ? { fg: '#F0EDE8', muted: '#5A5550', empty: '#1E1D1B', line: '#2E2B28' }
+    : { fg: '#181714', muted: '#8A8680', empty: '#E8E4DC', line: '#DED9D1' }
 }
 
-const FONT = 'Inter, system-ui, -apple-system, sans-serif'
+function computeBgStyle(bg: ExportBg, entriesMap: Map<string, string>): string {
+  if (bg === 'warm')  return '#F7F4EF'
+  if (bg === 'white') return '#FFFFFF'
+  if (bg === 'dark')  return '#0E0D0C'
+
+  // 'mood': soft gradient from the 3 most-recent mood colors
+  const recent = Array.from(entriesMap.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 3)
+    .map(([, c]) => c)
+
+  if (recent.length === 0) return '#F7F4EF'
+  const c1 = recent[0]
+  const c2 = recent[1] ?? recent[0]
+  const c3 = recent[2] ?? recent[1] ?? recent[0]
+
+  return `linear-gradient(135deg, ${c1}38 0%, ${c2}2a 50%, ${c3}1e 100%), #F7F4EF`
+}
+
+const FONT_SANS  = 'Inter, system-ui, -apple-system, sans-serif'
+const FONT_SERIF = 'Georgia, "Times New Roman", Times, serif'
 
 function getActiveMoods(entriesMap: Map<string, string>) {
   const used = new Set(entriesMap.values())
@@ -47,26 +69,26 @@ function getActiveMoods(entriesMap: Map<string, string>) {
 }
 
 const ExportCanvas = forwardRef<HTMLDivElement, Props>(
-  ({ entriesMap, mode, theme, style, format, username, year, month }, ref) => {
-    const { bg, fg, muted, empty, line } = pal(theme)
-    const canvasH = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
-    const isStory = format === 'story'
-    const labeled = style === 'labeled'
-    const PAD     = isStory ? 30 : 26
+  ({ entriesMap, mode, bg, style, format, font, username, year, month }, ref) => {
+    const { fg, muted, empty, line } = getPalette(bg)
+    const bgStyle  = computeBgStyle(bg, entriesMap)
+    const FONT     = font === 'serif' ? FONT_SERIF : FONT_SANS
+    const canvasH  = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
+    const isStory  = format === 'story'
+    const labeled  = style === 'labeled'
+    const PAD      = isStory ? 30 : 26
 
     const getColor = (d: Date | null) => d ? (entriesMap.get(toISO(d)) ?? null) : null
     const getMoodLabel = (hex: string | null) =>
       hex ? (MOOD_PALETTE.find(m => m.hex === hex)?.label ?? null) : null
 
     // ── HEADER ──────────────────────────────────────────────────────────────
-    // Display title: what the image represents, in plain language
     const getDisplayTitle = () => {
       if (mode === 'weekly')  return 'I colori della mia settimana'
       if (mode === 'monthly') return `I colori di ${MONTH_FULL[month]}`
       return `I colori del ${year}`
     }
 
-    // Date range in compact form
     const getDateLabel = () => {
       if (mode === 'weekly') {
         const days = getWeekDays(new Date())
@@ -76,7 +98,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       return ''
     }
 
-    const HEADER_H  = isStory ? 100 : 72
+    const HEADER_H  = isStory ? 108 : 76
     const FOOTER_H  = isStory ? 72  : 52
     const CONTENT_H = canvasH - HEADER_H - FOOTER_H
 
@@ -86,15 +108,14 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
-        padding: `0 ${PAD}px 12px`,
+        padding: `0 ${PAD}px 14px`,
         flexShrink: 0,
       }}>
-        {/* Row 1: IRIDE wordmark + date label */}
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 5 }}>
           <span style={{
             fontSize: isStory ? 18 : 14,
             fontWeight: 800,
-            letterSpacing: '-0.04em',
+            letterSpacing: font === 'serif' ? '-0.01em' : '-0.04em',
             color: fg,
             fontFamily: FONT,
             lineHeight: 1,
@@ -113,15 +134,15 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           )}
         </div>
 
-        {/* Row 2: Display title — the main explanatory line */}
         <p style={{
-          fontSize: isStory ? 20 : 15,
-          fontWeight: 700,
-          letterSpacing: '-0.03em',
+          fontSize: isStory ? 21 : 16,
+          fontWeight: font === 'serif' ? 700 : 800,
+          letterSpacing: font === 'serif' ? '-0.01em' : '-0.03em',
           color: fg,
           fontFamily: FONT,
           lineHeight: 1.1,
-          marginBottom: 10,
+          marginBottom: 12,
+          fontStyle: font === 'serif' ? 'italic' : 'normal',
         }}>
           {getDisplayTitle()}
         </p>
@@ -399,7 +420,13 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
                 padding: labeled ? '0 0 4px 4px' : undefined,
               }}>
                 {labeled && day && (
-                  <span style={{ fontSize: 7, color: getColor(day) ? (needsLight(getColor(day)!) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.4)') : muted, fontFamily: FONT }}>
+                  <span style={{
+                    fontSize: 7,
+                    color: getColor(day)
+                      ? (needsLight(getColor(day)!) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.4)')
+                      : muted,
+                    fontFamily: FONT,
+                  }}>
                     {day.getDate()}
                   </span>
                 )}
@@ -414,7 +441,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
     const YearlyFeed = () => {
       const cols = 4, rows = 3
       const hGap = 10, vGap = 10
-      const padH  = PAD
+      const padH   = PAD
       const monthW = Math.floor((CANVAS_W - padH * 2 - (cols - 1) * hGap) / cols)
       const monthH = Math.floor((CONTENT_H - (rows - 1) * vGap) / rows)
       const nameH  = 14
@@ -465,7 +492,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
     const YearlyStory = () => {
       const cols = 3, rows = 4
       const hGap = 14, vGap = 14
-      const padH  = PAD
+      const padH   = PAD
       const monthW = Math.floor((CANVAS_W - padH * 2 - (cols - 1) * hGap) / cols)
       const monthH = Math.floor((CONTENT_H - (rows - 1) * vGap) / rows)
       const nameH  = 16
@@ -518,7 +545,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
         style={{
           width: CANVAS_W,
           height: canvasH,
-          backgroundColor: bg,
+          background: bgStyle,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

@@ -27,7 +27,9 @@ export interface ExportRecord {
   created_at: string
 }
 
-export type ViewMode = 'weekly' | 'monthly' | 'yearly'
+export type ViewMode    = 'weekly' | 'monthly' | 'yearly'
 export type ExportTheme = 'light' | 'dark'
 export type ExportStyle = 'art' | 'labeled'
 export type ExportFormat = 'feed' | 'story'
+export type ExportFont  = 'sans' | 'serif'
+export type ExportBg    = 'warm' | 'white' | 'dark' | 'mood'

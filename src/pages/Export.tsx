@@ -4,9 +4,9 @@ import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { toISO } from '../lib/dateUtils'
 import ExportCanvas, { CANVAS_W, CANVAS_H_FEED, CANVAS_H_STORY } from '../components/ExportCanvas'
-import type { ViewMode, ExportTheme, ExportStyle, ExportFormat } from '../types'
+import type { ViewMode, ExportStyle, ExportFormat, ExportFont, ExportBg } from '../types'
 
-const PIXEL_RATIO = 3 // 360px × 3 = 1080px output
+const PIXEL_RATIO = 3
 
 export default function Export() {
   const { profile } = useAuthStore()
@@ -15,9 +15,10 @@ export default function Export() {
 
   const [loaded,    setLoaded]    = useState(false)
   const [mode,      setMode]      = useState<ViewMode>('monthly')
-  const [theme,     setTheme]     = useState<ExportTheme>('light')
+  const [bg,        setBg]        = useState<ExportBg>('warm')
   const [style,     setStyle]     = useState<ExportStyle>('art')
   const [format,    setFormat]    = useState<ExportFormat>('feed')
+  const [font,      setFont]      = useState<ExportFont>('sans')
   const [exporting, setExporting] = useState(false)
   const [shared,    setShared]    = useState(false)
 
@@ -74,7 +75,6 @@ export default function Export() {
         setShared(true)
         setTimeout(() => setShared(false), 2500)
       } else {
-        // Fallback to download if Web Share API not supported
         const a = document.createElement('a')
         a.download = `iride-${mode}.png`
         a.href = dataUrl
@@ -86,10 +86,8 @@ export default function Export() {
     setExporting(false)
   }
 
-  // Scale the preview canvas to fit the screen width
-  const previewMaxW = 320
-  const scale = Math.min(1, previewMaxW / CANVAS_W)
-  const previewH = canvasH * scale
+  const scale       = Math.min(1, 320 / CANVAS_W)
+  const previewH    = canvasH * scale
 
   const ToggleGroup = ({
     label, options, value, onChange,
@@ -100,7 +98,9 @@ export default function Export() {
     onChange: (v: string) => void
   }) => (
     <div className="space-y-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: 'var(--color-muted)' }}>{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: 'var(--color-muted)' }}>
+        {label}
+      </p>
       <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
         {options.map(opt => (
           <button
@@ -109,8 +109,8 @@ export default function Export() {
             className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97]"
             style={{
               background: value === opt.key ? 'var(--color-surface-raised)' : 'transparent',
-              color: value === opt.key ? 'var(--color-foreground)' : 'var(--color-muted)',
-              boxShadow: value === opt.key ? 'var(--shadow-xs)' : undefined,
+              color:      value === opt.key ? 'var(--color-foreground)'     : 'var(--color-muted)',
+              boxShadow:  value === opt.key ? 'var(--shadow-xs)'            : undefined,
             }}
           >
             {opt.text}
@@ -120,19 +120,41 @@ export default function Export() {
     </div>
   )
 
+  /* Bg swatch previews for the Sfondo option */
+  const BgSwatch = ({ bgKey }: { bgKey: ExportBg }) => {
+    const colors: Record<ExportBg, string> = {
+      warm:  '#F7F4EF',
+      white: '#FFFFFF',
+      dark:  '#0E0D0C',
+      mood:  'linear-gradient(135deg, #FFD000 0%, #FF0A54 50%, #00B4D8 100%)',
+    }
+    return (
+      <div style={{
+        width: 10, height: 10, borderRadius: '50%',
+        background: colors[bgKey],
+        border: '1.5px solid rgba(0,0,0,0.12)',
+        flexShrink: 0,
+      }} />
+    )
+  }
+
   return (
     <div className="page-top flex flex-col">
 
       {/* Header */}
-      <div className="px-5 pb-5">
+      <div className="px-5 pb-4">
         <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] mb-1" style={{ color: 'var(--color-foreground)' }}>
           Esporta
         </h1>
-        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>Genera un poster da condividere su Instagram</p>
+        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
+          Genera un poster da condividere su Instagram
+        </p>
       </div>
 
       {/* Controls */}
       <div className="px-5 space-y-4 mb-6">
+
+        {/* Row 1: Vista */}
         <ToggleGroup
           label="Vista"
           value={mode}
@@ -143,18 +165,9 @@ export default function Export() {
             { key: 'yearly',  text: 'Anno' },
           ]}
         />
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <ToggleGroup
-              label="Sfondo"
-              value={theme}
-              onChange={v => setTheme(v as ExportTheme)}
-              options={[
-                { key: 'light', text: 'Chiaro' },
-                { key: 'dark',  text: 'Scuro' },
-              ]}
-            />
-          </div>
+
+        {/* Row 2: Stile + Font side by side */}
+        <div className="flex gap-3">
           <div className="flex-1">
             <ToggleGroup
               label="Stile"
@@ -162,11 +175,52 @@ export default function Export() {
               onChange={v => setStyle(v as ExportStyle)}
               options={[
                 { key: 'art',     text: 'Arte' },
-                { key: 'labeled', text: 'Etichette' },
+                { key: 'labeled', text: 'Testi' },
+              ]}
+            />
+          </div>
+          <div className="flex-1">
+            <ToggleGroup
+              label="Font"
+              value={font}
+              onChange={v => setFont(v as ExportFont)}
+              options={[
+                { key: 'sans',  text: 'Sans' },
+                { key: 'serif', text: 'Serif' },
               ]}
             />
           </div>
         </div>
+
+        {/* Row 3: Sfondo — with color swatches */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: 'var(--color-muted)' }}>
+            Sfondo
+          </p>
+          <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
+            {(['warm', 'white', 'dark', 'mood'] as ExportBg[]).map(k => {
+              const labels: Record<ExportBg, string> = { warm: 'Caldo', white: 'Bianco', dark: 'Scuro', mood: 'Mood' }
+              const active = bg === k
+              return (
+                <button
+                  key={k}
+                  onClick={() => setBg(k)}
+                  className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold transition-all active:scale-[0.97] flex items-center justify-center gap-1.5"
+                  style={{
+                    background: active ? 'var(--color-surface-raised)' : 'transparent',
+                    color:      active ? 'var(--color-foreground)'     : 'var(--color-muted)',
+                    boxShadow:  active ? 'var(--shadow-xs)'            : undefined,
+                  }}
+                >
+                  <BgSwatch bgKey={k} />
+                  {labels[k]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Row 4: Formato */}
         <ToggleGroup
           label="Formato"
           value={format}
@@ -180,16 +234,14 @@ export default function Export() {
 
       {/* Canvas preview */}
       <div className="px-5 mb-8 flex justify-center">
-        {/* Outer div reserves the scaled dimensions in layout */}
         <div style={{
           width:        CANVAS_W * scale,
-          height:       canvasH * scale,
+          height:       previewH,
           borderRadius: 16,
           overflow:     'hidden',
-          boxShadow:    '0 8px 40px rgba(0,0,0,0.12)',
+          boxShadow:    '0 8px 40px rgba(0,0,0,0.14)',
           flexShrink:   0,
         }}>
-          {/* Inner div is the real canvas size, scaled visually to fit */}
           <div style={{
             width:           CANVAS_W,
             height:          canvasH,
@@ -200,9 +252,10 @@ export default function Export() {
               ref={canvasRef}
               entriesMap={entriesMap}
               mode={mode}
-              theme={theme}
+              bg={bg}
               style={style}
               format={format}
+              font={font}
               username={profile?.username}
               year={year}
               month={month}
@@ -212,11 +265,12 @@ export default function Export() {
       </div>
 
       {/* Action buttons */}
-      <div className="px-5 space-y-3 mt-auto">
+      <div className="px-5 space-y-3 mt-auto pb-2">
         <button
           onClick={handleShare}
           disabled={exporting}
-          className="w-full py-4 bg-foreground text-surface rounded-2xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+          style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M11 1l4 4-4 4M15 5H5a4 4 0 000 8h1"
@@ -228,7 +282,12 @@ export default function Export() {
         <button
           onClick={handleDownload}
           disabled={exporting}
-          className="w-full py-4 border border-subtle text-foreground rounded-2xl text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-2xl text-[15px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+          style={{
+            background: 'transparent',
+            border: '1.5px solid var(--color-subtle)',
+            color: 'var(--color-foreground)',
+          }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 1v9M5 8l3 3 3-3M1 13h14"
