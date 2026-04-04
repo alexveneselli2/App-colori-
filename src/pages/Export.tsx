@@ -100,14 +100,14 @@ export default function Export() {
     onChange: (v: string) => void
   }) => (
     <div className="space-y-2">
-      <p className="text-[10px] text-muted uppercase tracking-widest">{label}</p>
-      <div className="flex bg-surface-raised rounded-xl p-1 gap-1">
+      <p className="text-[10px] font-medium text-muted uppercase tracking-[0.12em]">{label}</p>
+      <div className="flex bg-surface-raised rounded-2xl p-1 gap-1">
         {options.map(opt => (
           <button
             key={opt.key}
             onClick={() => onChange(opt.key)}
-            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-              value === opt.key ? 'bg-foreground text-surface' : 'text-muted'
+            className={`flex-1 py-2.5 rounded-xl text-[12px] font-medium transition-all active:scale-[0.97] ${
+              value === opt.key ? 'bg-foreground text-surface shadow-sm' : 'text-muted'
             }`}
           >
             {opt.text}
@@ -118,16 +118,18 @@ export default function Export() {
   )
 
   return (
-    <div className="flex flex-col min-h-screen pb-8">
+    <div className="page-top page-bottom flex flex-col min-h-screen">
 
       {/* Header */}
-      <div className="px-6 pt-14 pb-5">
-        <h2 className="text-2xl font-light text-foreground mb-1">Esporta</h2>
-        <p className="text-xs text-muted">Genera un'immagine da condividere</p>
+      <div className="px-6 pb-5">
+        <h1 className="text-[26px] font-semibold leading-tight text-foreground tracking-tight mb-1">
+          Esporta
+        </h1>
+        <p className="text-[13px] text-muted">Genera un'immagine da condividere</p>
       </div>
 
       {/* Controls */}
-      <div className="px-6 space-y-4 mb-6">
+      <div className="px-5 space-y-4 mb-6">
         <ToggleGroup
           label="Vista"
           value={mode}
@@ -174,35 +176,40 @@ export default function Export() {
       </div>
 
       {/* Canvas preview */}
-      <div className="px-6 mb-8 flex justify-center overflow-hidden">
+      <div className="px-5 mb-8 flex justify-center">
+        {/* Outer div reserves the scaled dimensions in layout */}
         <div style={{
-          width:          CANVAS_W * scale,
-          height:         previewH,
-          borderRadius:   12,
-          overflow:       'hidden',
-          boxShadow:      '0 4px 24px rgba(0,0,0,0.10)',
-          transform:      `scale(${scale})`,
-          transformOrigin: 'top left',
-          // Correct the visual offset introduced by scale
-          marginRight:    `${CANVAS_W * scale - CANVAS_W}px`,
-          marginBottom:   `${previewH - canvasH}px`,
+          width:        CANVAS_W * scale,
+          height:       canvasH * scale,
+          borderRadius: 16,
+          overflow:     'hidden',
+          boxShadow:    '0 8px 40px rgba(0,0,0,0.12)',
+          flexShrink:   0,
         }}>
-          <ExportCanvas
-            ref={canvasRef}
-            entriesMap={entriesMap}
-            mode={mode}
-            theme={theme}
-            style={style}
-            format={format}
-            username={profile?.username}
-            year={year}
-            month={month}
-          />
+          {/* Inner div is the real canvas size, scaled visually to fit */}
+          <div style={{
+            width:           CANVAS_W,
+            height:          canvasH,
+            transform:       `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}>
+            <ExportCanvas
+              ref={canvasRef}
+              entriesMap={entriesMap}
+              mode={mode}
+              theme={theme}
+              style={style}
+              format={format}
+              username={profile?.username}
+              year={year}
+              month={month}
+            />
+          </div>
         </div>
       </div>
 
       {/* Action buttons */}
-      <div className="px-6 space-y-3 mt-auto">
+      <div className="px-5 space-y-3 mt-auto">
         <button
           onClick={handleShare}
           disabled={exporting}

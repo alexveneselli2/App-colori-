@@ -33,17 +33,19 @@ export default function History() {
   ]
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="page-top page-bottom flex flex-col min-h-screen">
       {/* Header + tab bar */}
-      <div className="px-6 pt-14 pb-5">
-        <h2 className="text-2xl font-light text-foreground mb-6">Memoria</h2>
-        <div className="flex bg-surface-raised rounded-xl p-1 gap-1">
+      <div className="px-5 pb-5">
+        <h1 className="text-[26px] font-semibold leading-tight text-foreground tracking-tight mb-5">
+          Memoria
+        </h1>
+        <div className="flex bg-surface-raised rounded-2xl p-1 gap-1">
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setMode(tab.key)}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                mode === tab.key ? 'bg-foreground text-surface' : 'text-muted'
+              className={`flex-1 py-2.5 rounded-xl text-[12px] font-medium transition-all active:scale-[0.97] ${
+                mode === tab.key ? 'bg-foreground text-surface shadow-sm' : 'text-muted'
               }`}
             >
               {tab.label}
@@ -53,10 +55,10 @@ export default function History() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-6 pb-10">
+      <div className="flex-1 px-5 pb-6">
         {!loaded ? (
           <div className="flex items-center justify-center h-40">
-            <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: '#3A86FF' }} />
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFD000', animation: 'ping 1s infinite' }} />
           </div>
         ) : mode === 'weekly' ? (
           <WeeklyView today={today} getCellColor={getCellColor} todayStr={todayStr} />
@@ -81,13 +83,13 @@ function WeeklyView({
 }) {
   const days = getWeekDays(today)
   return (
-    <div className="space-y-6">
-      <p className="text-xs text-muted tracking-widest uppercase">
-        {MONTH_FULL[days[0].getMonth()]} {days[0].getFullYear()}
+    <div className="space-y-5">
+      <p className="text-[10px] font-medium tracking-[0.12em] uppercase text-muted">
+        {days[0].getDate()}–{days[6].getDate()} {MONTH_FULL[days[0].getMonth()]} {days[0].getFullYear()}
       </p>
       <div className="grid grid-cols-7 gap-2">
         {DAY_INITIAL.map((d, i) => (
-          <p key={i} className="text-center text-[10px] text-muted uppercase tracking-wider">{d}</p>
+          <p key={i} className="text-center text-[9px] text-muted uppercase tracking-wider font-medium">{d}</p>
         ))}
         {days.map((day, i) => {
           const color   = getCellColor(day)
@@ -95,8 +97,8 @@ function WeeklyView({
           return (
             <div key={i} className="space-y-1.5">
               <div
-                className={`aspect-square rounded-xl transition-colors ${
-                  isToday ? 'ring-2 ring-foreground/25 ring-offset-1 ring-offset-surface' : ''
+                className={`aspect-square rounded-2xl transition-colors ${
+                  isToday ? 'ring-2 ring-foreground/30 ring-offset-2 ring-offset-surface' : ''
                 }`}
                 style={{ backgroundColor: color ?? EMPTY_CELL_LIGHT }}
               />
@@ -121,12 +123,12 @@ function MonthlyView({
   const cells = getMonthCells(year, month)
   return (
     <div className="space-y-5">
-      <p className="text-xs text-muted tracking-widest uppercase">
+      <p className="text-[10px] font-medium tracking-[0.12em] uppercase text-muted">
         {MONTH_FULL[month]} {year}
       </p>
       <div className="grid grid-cols-7 gap-2">
         {DAY_INITIAL.map((d, i) => (
-          <p key={i} className="text-center text-[10px] text-muted uppercase tracking-wider">{d}</p>
+          <p key={i} className="text-center text-[9px] text-muted uppercase tracking-wider font-medium">{d}</p>
         ))}
         {cells.map((day, i) => {
           if (!day) return <div key={i} />
@@ -135,8 +137,8 @@ function MonthlyView({
           return (
             <div key={i} className="space-y-0.5">
               <div
-                className={`aspect-square rounded-md transition-colors ${
-                  isToday ? 'ring-1 ring-foreground/25 ring-offset-1 ring-offset-surface' : ''
+                className={`aspect-square rounded-xl transition-colors ${
+                  isToday ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-surface' : ''
                 }`}
                 style={{ backgroundColor: color ?? EMPTY_CELL_LIGHT }}
               />
@@ -158,13 +160,13 @@ function YearlyView({
 }) {
   return (
     <div className="space-y-5">
-      <p className="text-xs text-muted tracking-widest uppercase">{year}</p>
+      <p className="text-[10px] font-medium tracking-[0.12em] uppercase text-muted">{year}</p>
       <div className="space-y-4">
         {Array.from({ length: 12 }, (_, m) => {
           const cells = getMonthCells(year, m)
           return (
             <div key={m} className="space-y-1.5">
-              <p className="text-[10px] text-muted">{MONTH_SHORT[m]}</p>
+              <p className="text-[9px] font-medium text-muted uppercase tracking-wider">{MONTH_SHORT[m]}</p>
               <div className="grid grid-cols-7 gap-1">
                 {cells.map((day, i) => {
                   if (!day) return <div key={i} className="aspect-square" />
@@ -173,7 +175,7 @@ function YearlyView({
                   return (
                     <div
                       key={i}
-                      className={`aspect-square rounded-sm ${
+                      className={`aspect-square rounded-md ${
                         isToday ? 'ring-1 ring-foreground/30' : ''
                       }`}
                       style={{ backgroundColor: color ?? EMPTY_CELL_LIGHT }}
