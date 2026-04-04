@@ -1,5 +1,5 @@
 # CLAUDE.md — Memoria di sessione per Iride
-> Ultima sessione: 2026-04-04
+> Ultima sessione: 2026-04-05
 
 ---
 
@@ -113,15 +113,21 @@ Per uscire dal demo: `exitDemo()` in `src/lib/demo.ts`.
 
 ---
 
-## Palette colori di default
+## Palette colori (20 colori scientifici, da moods.ts)
+
+Basata su Plutchik, Russell's Circumplex, Geneva Emotion Wheel, Jonauskaite et al. 2020.
 
 ```
-Sereno      #3A86FF    Felice      #FFD166
-Grato       #2A9D8F    Energico    #FF006E
-Motivato    #8338EC    Calmo       #06D6A0
-Nostalgico  #8D99AE    Ansioso     #F4A261
-Triste      #457B9D    Arrabbiato  #D00000
-Vuoto       #2B2D42    Confuso     #BDB2FF
+Gioia        #FFD000    Euforia      #FF6B00
+Estasi       #FF0A54    Passione     #D62839
+Tenerezza    #FF8FAB    Nostalgia    #C77DFF
+Meraviglia   #7B2FBE    Anticipazione #FB5607
+Sorpresa     #FFBE0B    Speranza     #80ED99
+Gratitudine  #52B788    Fiducia      #2D6A4F
+Calma        #00B4D8    Serenità     #90E0EF
+Solitudine   #6B7A8D    Malinconia   #3A5A8C
+Tristezza    #415A77    Rabbia       #A30015
+Paura        #1B1B2F    Disgusto     #6B6B3A
 ```
 
 ---
@@ -129,14 +135,28 @@ Vuoto       #2B2D42    Confuso     #BDB2FF
 ## Design system (CSS variables in index.css)
 
 ```css
---color-surface:        #FAFAF8   /* sfondo principale */
---color-surface-raised: #F0EDE8   /* card/input */
---color-foreground:     #1A1A1A   /* testo principale */
---color-muted:          #9A958F   /* testo secondario */
---color-subtle:         #E8E4DF   /* bordi, divisori */
+--color-surface:        #F7F4EF   /* sfondo principale */
+--color-surface-raised: #EDEAE3   /* card/input */
+--color-foreground:     #181714   /* testo principale */
+--color-muted:          #8A8680   /* testo secondario */
+--color-subtle:         #DED9D1   /* bordi, divisori */
+--nav-h:                74px      /* altezza nav pill */
+--nav-total:            calc(74px + var(--sab))
 ```
 
-Celle vuote nel calendario: `#F0EDE8` (light) / `#1F1F1F` (dark)
+Celle vuote nel calendario: `#E8E4DC` (light) / `#1E1D1B` (dark)
+
+**Sfondo dinamico**: Layout.tsx applica un `radial-gradient` dall'ultimo colore di umore registrato, molto trasparente (opacity ~10%). In Today.tsx il gradiente si aggiorna in tempo reale mentre l'utente seleziona un colore.
+
+---
+
+## Mix di emozioni (`blendHex` in Today.tsx)
+
+L'utente può creare un colore ibrido interpolando linearmente due palette:
+- Seleziona emozione A e B dalla palette (griglia 10×2)
+- Uno slider 0–100% controlla il peso del mix
+- `blendHex(hex1, hex2, ratio)` calcola il RGB interpolato
+- Il colore risultante è salvato come entry normale (source: 'palette')
 
 ---
 
@@ -149,10 +169,17 @@ Il componente `ExportCanvas.tsx` renderizza con stili inline (obbligatorio per h
 | Feed 1:1 | 360×360 | 1080×1080 (pixelRatio 3) |
 | Story 9:16 | 360×640 | 1080×1920 (pixelRatio 3) |
 
-Opzioni: sfondo chiaro/scuro × stile Arte (solo colori) / Etichette (con date e @username).
+Opzioni: sfondo chiaro/scuro × stile Arte (solo colori) / Etichette (con date, mood labels, @username, legenda).
 
-Vista annuale feed → contribution graph stile GitHub (53 col × 7 righe).
-Vista annuale story → 12 mesi impilati verticalmente.
+**Layout per formato**:
+- Weekly Feed: 2 righe di rettangoli verticali (4+3), giorno + data + mood in labeled mode
+- Weekly Story: 7 barre orizzontali piene larghezza, giorno a sx, data a dx
+- Monthly Feed: griglia calendario 7×N con celle quadrate + numerazione date
+- Monthly Story: stessa griglia ma celle proporzionalmente più grandi (usa tutta l'altezza)
+- Yearly Feed: griglia 4×3 di 12 mini-calendari mensili (rimpiazza il contribution graph)
+- Yearly Story: griglia 3×4 di 12 mini-calendari con celle più grandi
+- Header sempre visibile: IRIDE wordmark (bold) + subtitolo periodo + linea separatrice
+- Footer sempre: @username + legenda colori (solo labeled mode)
 
 Condivisione: Web Share API (funziona su Chrome Android/iOS Safari). Fallback: download PNG.
 
@@ -182,6 +209,21 @@ Per demo senza Supabase: cliccare "Prova il demo" sulla schermata di login.
 
 ---
 
+## Auth / Registrazione
+
+**Flusso con conferma email** (Supabase default):
+1. Signup → se `data.session` è null → mostra messaggio "controlla email"
+2. Utente clicca link email → Supabase redirige su GitHub Pages con token in hash
+3. `onAuthStateChange` riceve `SIGNED_IN` con sessione valida ma senza profilo
+4. `App.tsx` tiene `hasSession: boolean` separato da `profile`
+5. Con `hasSession=true` e `profile=null` → redirect automatico a `/onboarding`
+6. Onboarding crea il profilo su Supabase → `fetchProfile` → app avviata
+
+**Senza conferma email** (disabilitata in Supabase):
+- `data.session` è non-null dopo signup → redirect diretto a `/onboarding`
+
+---
+
 ## Roadmap futura (non implementato)
 
 - Instagram OAuth (struttura dati già pronta, `source` in profiles)
@@ -191,3 +233,4 @@ Per demo senza Supabase: cliccare "Prova il demo" sulla schermata di login.
 - Navigazione settimane/mesi precedenti nella vista Memoria
 - Filtro per mood label nella vista storica
 - Statistiche emotive (% per colore, streak)
+- Sfondo dinamico anche in History ed Export (attualmente solo Today + Layout)
