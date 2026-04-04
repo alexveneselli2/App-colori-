@@ -40,7 +40,8 @@ Il cuore del prodotto è la generazione di immagini belle e condivisibili su Ins
 ```
 src/
 ├── App.tsx                    # Routing principale + auth init + demo mode check
-├── index.css                  # CSS variables design system (surface, foreground, muted...)
+│                              # hasSession: boolean separato da profile (per email confirm flow)
+├── index.css                  # CSS variables design system completo + animazioni
 ├── vite-env.d.ts              # Types per import.meta.env
 ├── lib/
 │   ├── supabase.ts            # Client Supabase
@@ -50,19 +51,23 @@ src/
 │   ├── useAuthStore.ts        # Profile + signOut, supporta demo mode
 │   └── useMoodStore.ts        # Entries CRUD, supporta demo mode
 ├── constants/
-│   └── moods.ts               # MOOD_PALETTE (12 colori), EMPTY_CELL_LIGHT/DARK
+│   └── moods.ts               # MOOD_PALETTE (20 colori), EMPTY_CELL_LIGHT/DARK
 ├── types/
-│   └── index.ts               # Profile, MoodEntry, ExportRecord, ViewMode, ecc.
+│   └── index.ts               # Profile, MoodEntry, ExportRecord, ViewMode,
+│                              # ExportTheme, ExportStyle, ExportFormat, ExportFont, ExportBg
 ├── components/
-│   ├── Layout.tsx             # Shell con nav bottom tab
+│   ├── Layout.tsx             # Shell con nav bottom tab + ambient mood bg
 │   ├── Navigation.tsx         # Tab bar: Oggi / Memoria / Esporta
-│   └── ExportCanvas.tsx       # Canvas export (360×360 feed, 360×640 story)
+│   └── ExportCanvas.tsx       # Canvas export - solo stili inline (obbligatorio html-to-image)
 └── pages/
     ├── Auth.tsx               # Login/signup + bottone "Prova il demo"
+    │                          # Brand orbs arc, IRIDE wordmark con gradient text
     ├── Onboarding.tsx         # Nome + @username al primo accesso
-    ├── Today.tsx              # Selezione colore giornaliera con conferma irreversibile
+    │                          # try/catch per "Load Failed" (Safari iOS senza Supabase)
+    ├── Today.tsx              # Tre tab: Palette / Colore / Mix — nessuno scroll
+    │                          # blendHex(), MixPicker, ConfirmSheet, ProfileSheet
     ├── History.tsx            # Viste settimanale/mensile/annuale
-    └── Export.tsx             # Genera PNG 1080×1080 o 1080×1920, share Instagram
+    └── Export.tsx             # Genera PNG, opzioni: Vista/Stile/Font/Sfondo/Formato
 ```
 
 ---
@@ -135,53 +140,99 @@ Paura        #1B1B2F    Disgusto     #6B6B3A
 ## Design system (CSS variables in index.css)
 
 ```css
---color-surface:        #F7F4EF   /* sfondo principale */
---color-surface-raised: #EDEAE3   /* card/input */
---color-foreground:     #181714   /* testo principale */
---color-muted:          #8A8680   /* testo secondario */
---color-subtle:         #DED9D1   /* bordi, divisori */
---nav-h:                74px      /* altezza nav pill */
---nav-total:            calc(74px + var(--sab))
+--color-surface:        #F2EDE5   /* warm parchment — sfondo principale */
+--color-surface-raised: #FFFFFF   /* white cards */
+--color-foreground:     #1C1917   /* testo principale */
+--color-muted:          #79716B   /* testo secondario */
+--color-subtle:         #E8E2D8   /* bordi, divisori, toggle bg */
+--brand-gradient: linear-gradient(110deg, #FFD000 0%, #FF6B00 20%, #FF0A54 38%, #C77DFF 55%, #00B4D8 72%, #52B788 88%)
+--shadow-xs / --shadow-sm / --shadow-md / --shadow-lg  /* scala shadow */
+--nav-h:     74px
+--nav-total: calc(var(--nav-h) + var(--sab))
+--sat: env(safe-area-inset-top,    0px)
+--sab: env(safe-area-inset-bottom, 0px)
 ```
 
-Celle vuote nel calendario: `#E8E4DC` (light) / `#1E1D1B` (dark)
+**Classi utility importanti:**
+- `.card` → white card con border + shadow-sm
+- `.page-top` → padding-top: calc(var(--sat) + 52px)
+- `.animate-pop-in` → spring 0.36s cubic-bezier(0.34,1.56,0.64,1)
+- `.animate-float` → float 3s infinite
+- `.tab-content-enter` → fadeUp 0.22s per switch di tab
+- `.swatch-row-1` … `.swatch-row-4` → fadeUp staggered per palette grid
 
-**Sfondo dinamico**: Layout.tsx applica un `radial-gradient` dall'ultimo colore di umore registrato, molto trasparente (opacity ~10%). In Today.tsx il gradiente si aggiorna in tempo reale mentre l'utente seleziona un colore.
+**Overlap fix definitivo**: Il container scroll in Layout.tsx ha `paddingBottom: calc(var(--nav-total) + 36px)`. Le pagine NON usano `minHeight: 100dvh`.
 
 ---
 
-## Mix di emozioni (`blendHex` in Today.tsx)
+## Today.tsx — Architettura tab
 
-L'utente può creare un colore ibrido interpolando linearmente due palette:
-- Seleziona emozione A e B dalla palette (griglia 10×2)
-- Uno slider 0–100% controlla il peso del mix
-- `blendHex(hex1, hex2, ratio)` calcola il RGB interpolato
-- Il colore risultante è salvato come entry normale (source: 'palette')
+```typescript
+type Tab = 'palette' | 'custom' | 'mix'
+const [tab, setTab] = useState<Tab>('palette')
+const [tabKey, setTabKey] = useState(0) // incrementa per re-trigger animazione
+
+const switchTab = (t: Tab) => { setTab(t); setTabKey(k => k + 1) }
+```
+
+- **Tab bar** sempre visibile in cima
+- **Content** avvolto in `<div key={tabKey} className="tab-content-enter">` per animazione su switch
+- **Palette**: griglia 5×4 con classi `swatch-row-N` per stagger animazione
+- **Custom**: band colore 120px + input color + "Usa →"
+- **Mix**: due `MixPicker` affiancati (4 col grid), gradient bar, slider 0–100
+- `blendHex(hex1, hex2, t)` — interpolazione lineare RGB
+
+**Brand orbs** (`ORB_COLORS = ['#FFD000','#FF6B00','#FF0A54','#C77DFF','#00B4D8','#52B788','#2D6A4F']`):
+Usati in: Auth.tsx (arco decorativo), Today.tsx "entry saved" view, ProfileSheet.
 
 ---
 
 ## Export PNG
 
-Il componente `ExportCanvas.tsx` renderizza con stili inline (obbligatorio per html-to-image).
+Il componente `ExportCanvas.tsx` renderizza con **stili inline** (obbligatorio per html-to-image).
 
 | Formato | CSS px | Output |
 |---------|--------|--------|
 | Feed 1:1 | 360×360 | 1080×1080 (pixelRatio 3) |
 | Story 9:16 | 360×640 | 1080×1920 (pixelRatio 3) |
 
-Opzioni: sfondo chiaro/scuro × stile Arte (solo colori) / Etichette (con date, mood labels, @username, legenda).
+**Props ExportCanvas**: `entriesMap, mode, bg, style, format, font, username, year, month`
+- **`bg: ExportBg`** = `'warm' | 'white' | 'dark' | 'mood'`
+  - `warm` → #F7F4EF, testi scuri
+  - `white` → #FFFFFF, testi scuri
+  - `dark` → #0E0D0C, testi chiari
+  - `mood` → `linear-gradient` dalle 3 entry più recenti + base #F7F4EF
+- **`font: ExportFont`** = `'sans' | 'serif'`
+  - `sans` → Inter, system-ui
+  - `serif` → Georgia, serif (titolo in corsivo)
 
 **Layout per formato**:
 - Weekly Feed: 2 righe di rettangoli verticali (4+3), giorno + data + mood in labeled mode
-- Weekly Story: 7 barre orizzontali piene larghezza, giorno a sx, data a dx
-- Monthly Feed: griglia calendario 7×N con celle quadrate + numerazione date
-- Monthly Story: stessa griglia ma celle proporzionalmente più grandi (usa tutta l'altezza)
-- Yearly Feed: griglia 4×3 di 12 mini-calendari mensili (rimpiazza il contribution graph)
+- Weekly Story: 7 barre orizzontali piene larghezza
+- Monthly Feed: griglia calendario 7×N con celle quadrate
+- Monthly Story: stessa griglia ma celle proporzionalmente più grandi
+- Yearly Feed: griglia 4×3 di 12 mini-calendari mensili
 - Yearly Story: griglia 3×4 di 12 mini-calendari con celle più grandi
-- Header sempre visibile: IRIDE wordmark (bold) + subtitolo periodo + linea separatrice
-- Footer sempre: @username + legenda colori (solo labeled mode)
+- Header: IRIDE wordmark + display title ("I colori della mia settimana" ecc.) + linea
+- Footer: @username + legenda colori (solo labeled mode)
 
-Condivisione: Web Share API (funziona su Chrome Android/iOS Safari). Fallback: download PNG.
+Condivisione: Web Share API (Chrome Android/iOS Safari). Fallback: download PNG.
+
+---
+
+## Auth / Registrazione
+
+**Flusso con conferma email** (Supabase default):
+1. Signup → se `data.session` è null → mostra messaggio "controlla email"
+2. Utente clicca link email → Supabase redirige su GitHub Pages con token in hash
+3. `onAuthStateChange` riceve `SIGNED_IN` con sessione valida ma senza profilo
+4. `App.tsx` tiene `hasSession: boolean` separato da `profile`
+5. Con `hasSession=true` e `profile=null` → redirect automatico a `/onboarding`
+6. Onboarding crea il profilo su Supabase → `fetchProfile` → app avviata
+
+**Errore "Load Failed" su Safari iOS**: Supabase lancia network error quando URL è placeholder.
+Fix: try/catch in Onboarding.tsx che rileva "failed"/"network"/"fetch"/"load" e mostra
+messaggio italiano con suggerimento di usare la demo.
 
 ---
 
@@ -209,28 +260,13 @@ Per demo senza Supabase: cliccare "Prova il demo" sulla schermata di login.
 
 ---
 
-## Auth / Registrazione
-
-**Flusso con conferma email** (Supabase default):
-1. Signup → se `data.session` è null → mostra messaggio "controlla email"
-2. Utente clicca link email → Supabase redirige su GitHub Pages con token in hash
-3. `onAuthStateChange` riceve `SIGNED_IN` con sessione valida ma senza profilo
-4. `App.tsx` tiene `hasSession: boolean` separato da `profile`
-5. Con `hasSession=true` e `profile=null` → redirect automatico a `/onboarding`
-6. Onboarding crea il profilo su Supabase → `fetchProfile` → app avviata
-
-**Senza conferma email** (disabilitata in Supabase):
-- `data.session` è non-null dopo signup → redirect diretto a `/onboarding`
-
----
-
 ## Roadmap futura (non implementato)
 
 - Instagram OAuth (struttura dati già pronta, `source` in profiles)
 - Notifiche push quotidiane (promemoria rituale)
 - Salvataggio export su Supabase Storage
-- Dark mode UI completa (la palette export dark esiste già)
 - Navigazione settimane/mesi precedenti nella vista Memoria
 - Filtro per mood label nella vista storica
 - Statistiche emotive (% per colore, streak)
 - Sfondo dinamico anche in History ed Export (attualmente solo Today + Layout)
+- Dark mode UI completa dell'app (la palette export dark esiste già)
