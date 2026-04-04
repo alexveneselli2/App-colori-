@@ -1,28 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,300&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens ────────────────────────────────────────────────────── */
 :root {
-  --color-surface:        #F7F4EF;
-  --color-surface-raised: #EDEAE3;
-  --color-foreground:     #181714;
-  --color-muted:          #8A8680;
-  --color-subtle:         #DED9D1;
+  /* Warm parchment palette — richer, more emotional than pure neutrals */
+  --color-surface:        #F2EDE5;   /* warm background */
+  --color-surface-raised: #FFFFFF;   /* card / input surfaces */
+  --color-foreground:     #1C1917;   /* near-black with warmth */
+  --color-muted:          #79716B;   /* warm medium gray */
+  --color-subtle:         #E8E2D8;   /* warm border */
 
-  /* safe area insets */
+  /* Brand gradient — the spectrum of Iride */
+  --brand-gradient: linear-gradient(
+    110deg,
+    #FFD000 0%, #FF6B00 20%, #FF0A54 38%,
+    #C77DFF 55%, #00B4D8 72%, #52B788 88%
+  );
+
+  /* Shadows */
+  --shadow-xs: 0 1px 3px rgba(28,25,23,0.07);
+  --shadow-sm: 0 1px 3px rgba(28,25,23,0.06), 0 4px 14px rgba(28,25,23,0.07);
+  --shadow-md: 0 2px 8px rgba(28,25,23,0.07), 0 8px 28px rgba(28,25,23,0.09);
+  --shadow-lg: 0 4px 16px rgba(28,25,23,0.10), 0 20px 60px rgba(28,25,23,0.14);
+
+  /* Safe areas */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* nav pill: ~52px pill + 8px top padding + max(sab,14px) bottom */
-  --nav-h: 74px;
+  /* Navigation */
+  --nav-h:     74px;
   --nav-total: calc(var(--nav-h) + var(--sab));
 }
 
-* {
-  -webkit-tap-highlight-color: transparent;
+/* ─── Reset ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body, #root {
@@ -38,19 +54,19 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Color picker reset */
+/* ─── Color picker ───────────────────────────────────────────────────────── */
 input[type="color"] {
   -webkit-appearance: none;
   padding: 0;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   overflow: hidden;
 }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-input[type="color"]::-webkit-color-swatch { border: none; border-radius: 10px; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 12px; }
 
-/* Range input */
+/* ─── Range slider ───────────────────────────────────────────────────────── */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -58,31 +74,47 @@ input[type="range"] {
   border-radius: 2px;
   outline: none;
   cursor: pointer;
+  width: 100%;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: white;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.22);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   cursor: pointer;
 }
 
-/* Page spacing — safe area aware */
-.page-top {
-  padding-top: calc(var(--sat) + 56px);
-}
-.page-bottom {
-  padding-bottom: calc(var(--nav-total) + 32px);
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
+
+/* Card surface */
+.card {
+  background: var(--color-surface-raised);
+  border-radius: 20px;
+  border: 1.5px solid var(--color-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Animations */
+/* Status bar clearance */
+.page-top {
+  padding-top: calc(var(--sat) + 52px);
+}
+
+/* Brand gradient text */
+.brand-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
 @keyframes ping {
-  75%, 100% { transform: scale(2); opacity: 0; }
+  75%, 100% { transform: scale(2.2); opacity: 0; }
 }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn {
@@ -93,7 +125,11 @@ input[type="range"]::-webkit-slider-thumb {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
 
-.animate-fade-up   { animation: fadeUp   0.28s ease both; }
-.animate-fade-in   { animation: fadeIn   0.20s ease both; }
-.animate-slide-up  { animation: slideUp  0.32s cubic-bezier(0.32, 0.72, 0, 1) both; }
+.animate-fade-up  { animation: fadeUp  0.30s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in  { animation: fadeIn  0.22s ease both; }
+.animate-slide-up { animation: slideUp 0.34s cubic-bezier(0.32,0.72,0,1) both; }

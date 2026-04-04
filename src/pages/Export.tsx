@@ -100,15 +100,18 @@ export default function Export() {
     onChange: (v: string) => void
   }) => (
     <div className="space-y-2">
-      <p className="text-[10px] font-medium text-muted uppercase tracking-[0.12em]">{label}</p>
-      <div className="flex bg-surface-raised rounded-2xl p-1 gap-1">
+      <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: 'var(--color-muted)' }}>{label}</p>
+      <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
         {options.map(opt => (
           <button
             key={opt.key}
             onClick={() => onChange(opt.key)}
-            className={`flex-1 py-2.5 rounded-xl text-[12px] font-medium transition-all active:scale-[0.97] ${
-              value === opt.key ? 'bg-foreground text-surface shadow-sm' : 'text-muted'
-            }`}
+            className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-[0.97]"
+            style={{
+              background: value === opt.key ? 'var(--color-surface-raised)' : 'transparent',
+              color: value === opt.key ? 'var(--color-foreground)' : 'var(--color-muted)',
+              boxShadow: value === opt.key ? 'var(--shadow-xs)' : undefined,
+            }}
           >
             {opt.text}
           </button>
@@ -118,14 +121,14 @@ export default function Export() {
   )
 
   return (
-    <div className="page-top page-bottom flex flex-col min-h-screen">
+    <div className="page-top flex flex-col">
 
       {/* Header */}
-      <div className="px-6 pb-5">
-        <h1 className="text-[26px] font-semibold leading-tight text-foreground tracking-tight mb-1">
+      <div className="px-5 pb-5">
+        <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] mb-1" style={{ color: 'var(--color-foreground)' }}>
           Esporta
         </h1>
-        <p className="text-[13px] text-muted">Genera un'immagine da condividere</p>
+        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>Genera un poster da condividere su Instagram</p>
       </div>
 
       {/* Controls */}

@@ -59,17 +59,25 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       hex ? (MOOD_PALETTE.find(m => m.hex === hex)?.label ?? null) : null
 
     // ── HEADER ──────────────────────────────────────────────────────────────
-    const getSubtitle = () => {
-      if (mode === 'weekly') {
-        const days = getWeekDays(new Date())
-        return `Settimana · ${days[0].getDate()}–${days[6].getDate()} ${MONTH_SHORT[days[0].getMonth()]} ${days[0].getFullYear()}`
-      }
-      if (mode === 'monthly') return `${MONTH_FULL[month]} ${year}`
-      return `Anno ${year}`
+    // Display title: what the image represents, in plain language
+    const getDisplayTitle = () => {
+      if (mode === 'weekly')  return 'I colori della mia settimana'
+      if (mode === 'monthly') return `I colori di ${MONTH_FULL[month]}`
+      return `I colori del ${year}`
     }
 
-    const HEADER_H = isStory ? 88 : 62
-    const FOOTER_H = isStory ? 72 : 52
+    // Date range in compact form
+    const getDateLabel = () => {
+      if (mode === 'weekly') {
+        const days = getWeekDays(new Date())
+        return `${days[0].getDate()}–${days[6].getDate()} ${MONTH_SHORT[days[0].getMonth()]} ${days[0].getFullYear()}`
+      }
+      if (mode === 'monthly') return String(year)
+      return ''
+    }
+
+    const HEADER_H  = isStory ? 100 : 72
+    const FOOTER_H  = isStory ? 72  : 52
     const CONTENT_H = canvasH - HEADER_H - FOOTER_H
 
     const Header = () => (
@@ -78,29 +86,46 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
-        padding: `0 ${PAD}px 14px`,
+        padding: `0 ${PAD}px 12px`,
         flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+        {/* Row 1: IRIDE wordmark + date label */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
           <span style={{
-            fontSize: isStory ? 28 : 22,
-            fontWeight: 700,
-            letterSpacing: '-0.05em',
+            fontSize: isStory ? 18 : 14,
+            fontWeight: 800,
+            letterSpacing: '-0.04em',
             color: fg,
             fontFamily: FONT,
             lineHeight: 1,
           }}>IRIDE</span>
-          <span style={{
-            fontSize: isStory ? 9 : 8,
-            fontWeight: 500,
-            letterSpacing: '0.09em',
-            textTransform: 'uppercase',
-            color: muted,
-            fontFamily: FONT,
-          }}>
-            {getSubtitle()}
-          </span>
+          {getDateLabel() && (
+            <span style={{
+              fontSize: isStory ? 9 : 8,
+              fontWeight: 500,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: muted,
+              fontFamily: FONT,
+            }}>
+              {getDateLabel()}
+            </span>
+          )}
         </div>
+
+        {/* Row 2: Display title — the main explanatory line */}
+        <p style={{
+          fontSize: isStory ? 20 : 15,
+          fontWeight: 700,
+          letterSpacing: '-0.03em',
+          color: fg,
+          fontFamily: FONT,
+          lineHeight: 1.1,
+          marginBottom: 10,
+        }}>
+          {getDisplayTitle()}
+        </p>
+
         <div style={{ height: 1, backgroundColor: line }} />
       </div>
     )

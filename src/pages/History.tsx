@@ -33,20 +33,26 @@ export default function History() {
   ]
 
   return (
-    <div className="page-top page-bottom flex flex-col min-h-screen">
+    <div className="page-top flex flex-col">
       {/* Header + tab bar */}
       <div className="px-5 pb-5">
-        <h1 className="text-[26px] font-semibold leading-tight text-foreground tracking-tight mb-5">
+        <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] mb-5" style={{ color: 'var(--color-foreground)' }}>
           Memoria
         </h1>
-        <div className="flex bg-surface-raised rounded-2xl p-1 gap-1">
+        <div
+          className="flex p-1 gap-1 rounded-2xl"
+          style={{ background: 'var(--color-subtle)' }}
+        >
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setMode(tab.key)}
-              className={`flex-1 py-2.5 rounded-xl text-[12px] font-medium transition-all active:scale-[0.97] ${
-                mode === tab.key ? 'bg-foreground text-surface shadow-sm' : 'text-muted'
-              }`}
+              className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97]"
+              style={{
+                background: mode === tab.key ? 'var(--color-surface-raised)' : 'transparent',
+                color: mode === tab.key ? 'var(--color-foreground)' : 'var(--color-muted)',
+                boxShadow: mode === tab.key ? 'var(--shadow-xs)' : undefined,
+              }}
             >
               {tab.label}
             </button>
@@ -55,7 +61,7 @@ export default function History() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-5 pb-6">
+      <div className="flex-1 px-5">
         {!loaded ? (
           <div className="flex items-center justify-center h-40">
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFD000', animation: 'ping 1s infinite' }} />
