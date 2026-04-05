@@ -1,7 +1,7 @@
 {
-  "name": "Iride — Diario Cromatico",
+  "name": "Iride — Chromatic Mood Journal",
   "short_name": "Iride",
-  "description": "Traccia il tuo umore ogni giorno con un colore",
+  "description": "Track your mood every day with a color",
   "start_url": "/App-colori-/",
   "scope": "/App-colori-/",
   "display": "standalone",
