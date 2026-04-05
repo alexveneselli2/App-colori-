@@ -26,14 +26,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       return profile
     }
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    if (data) {
-      set({ profile: data as Profile })
-      return data as Profile
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (data) {
+        set({ profile: data as Profile })
+        return data as Profile
+      }
+    } catch (e) {
+      console.error('[Iride] supabase fetchProfile:', e)
     }
     return null
   },

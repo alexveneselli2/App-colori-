@@ -25,11 +25,23 @@ export default function App() {
       return
     }
 
+    // Safety timeout: never stay on loading screen more than 8s
+    const timeout = setTimeout(() => setLoading(false), 8000)
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setHasSession(true)
-        await fetchProfile(session.user.id)
+      try {
+        if (session?.user) {
+          setHasSession(true)
+          await fetchProfile(session.user.id)
+        }
+      } catch (e) {
+        console.error('[Iride] fetchProfile error:', e)
+      } finally {
+        clearTimeout(timeout)
+        setLoading(false)
       }
+    }).catch(() => {
+      clearTimeout(timeout)
       setLoading(false)
     })
 
@@ -41,13 +53,17 @@ export default function App() {
           setLoading(false)
         } else if (session?.user) {
           setHasSession(true)
-          await fetchProfile(session.user.id)
+          try {
+            await fetchProfile(session.user.id)
+          } catch (e) {
+            console.error('[Iride] fetchProfile error:', e)
+          }
           setLoading(false)
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => { subscription.unsubscribe(); clearTimeout(timeout) }
   }, [])
 
   if (loading) {
