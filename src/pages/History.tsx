@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import {
@@ -93,116 +93,177 @@ export default function History() {
 
 // ─── Diary view ──────────────────────────────────────────────────────────────
 function DiaryView({ entries }: { entries: MoodEntry[] }) {
-  const withNotes  = entries.filter(e => e.note)
-  const allEntries = [...entries].sort((a,b) => b.date.localeCompare(a.date))
+  const [query, setQuery]           = useState('')
+  const [debouncedQuery, setDQ]     = useState('')
+  const [chipFilter, setChipFilter] = useState<string>('all')
+  const debounceRef                 = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const allEntries = useMemo(() => [...entries].sort((a, b) => b.date.localeCompare(a.date)), [entries])
+
+  // Debounce search
+  const handleSearch = (v: string) => {
+    setQuery(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDQ(v), 200)
+  }
+
+  // Top-5 colors by frequency
+  const top5Colors = useMemo(() => {
+    const freq: Record<string, { hex: string; label: string | null; count: number }> = {}
+    allEntries.forEach(e => {
+      if (!freq[e.color_hex]) freq[e.color_hex] = { hex: e.color_hex, label: e.mood_label, count: 0 }
+      freq[e.color_hex].count++
+    })
+    return Object.values(freq).sort((a, b) => b.count - a.count).slice(0, 5)
+  }, [allEntries])
+
+  // Filtered entries
+  const filtered = useMemo(() => {
+    let result = allEntries
+    const q = debouncedQuery.toLowerCase().trim()
+    if (q) {
+      result = result.filter(e =>
+        (e.note?.toLowerCase().includes(q)) ||
+        (e.tags?.some(t => t.toLowerCase().includes(q)))
+      )
+    }
+    if (chipFilter === 'note') result = result.filter(e => e.note)
+    else if (chipFilter === 'location') result = result.filter(e => e.location_label)
+    else if (chipFilter !== 'all') result = result.filter(e => e.color_hex === chipFilter)
+    return result
+  }, [allEntries, debouncedQuery, chipFilter])
 
   if (allEntries.length === 0) {
     return (
       <div className="card p-8 text-center mt-4">
         <p className="text-[32px] mb-3">📖</p>
-        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
-          Il diario è vuoto
-        </p>
-        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-          Quando salvi un colore puoi scrivere una frase. Apparirà qui.
-        </p>
+        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>Il diario è vuoto</p>
+        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>Quando salvi un colore puoi scrivere una frase. Apparirà qui.</p>
       </div>
     )
   }
 
-  // Group by month
+  // Group filtered by month
   const byMonth: Record<string, MoodEntry[]> = {}
-  allEntries.forEach(e => {
-    const key = e.date.slice(0, 7) // YYYY-MM
+  filtered.forEach(e => {
+    const key = e.date.slice(0, 7)
     if (!byMonth[key]) byMonth[key] = []
     byMonth[key].push(e)
   })
 
+  const chipStyle = (active: boolean, colorHex?: string): React.CSSProperties => ({
+    padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', whiteSpace: 'nowrap', border: 'none',
+    background: active ? (colorHex ?? 'var(--color-foreground)') : 'var(--color-surface-raised)',
+    color: active ? (colorHex ? (needsLight(colorHex) ? '#fff' : '#1C1917') : 'var(--color-surface)') : 'var(--color-muted)',
+    boxShadow: active ? 'var(--shadow-xs)' : undefined,
+    transition: 'all 0.18s ease',
+  })
+
   return (
-    <div className="space-y-8 pb-4">
-      {withNotes.length === 0 && (
-        <div className="px-1">
-          <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-            Nessuna nota ancora — scrivi qualcosa quando salvi il prossimo colore.
-          </p>
-        </div>
+    <div className="space-y-4 pb-4">
+      {/* Search bar */}
+      <div style={{ position: 'relative' }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)', pointerEvents: 'none' }}>
+          <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        <input
+          type="text" value={query}
+          onChange={e => handleSearch(e.target.value)}
+          placeholder="Cerca nelle note e nei tag…"
+          style={{
+            width: '100%', padding: '11px 40px 11px 38px', borderRadius: 16, fontSize: 13,
+            background: 'var(--color-surface-raised)', border: '1.5px solid var(--color-subtle)',
+            color: 'var(--color-foreground)', outline: 'none',
+          }}
+        />
+        {query && (
+          <button onClick={() => { setQuery(''); setDQ('') }} style={{
+            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)',
+            fontSize: 16, lineHeight: 1, padding: 2,
+          }}>×</button>
+        )}
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }} className="no-scrollbar">
+        <button onClick={() => setChipFilter('all')} style={chipStyle(chipFilter === 'all')}>Tutte</button>
+        <button onClick={() => setChipFilter('note')} style={chipStyle(chipFilter === 'note')}>Con nota</button>
+        <button onClick={() => setChipFilter('location')} style={chipStyle(chipFilter === 'location')}>Con luogo</button>
+        {top5Colors.map(c => (
+          <button key={c.hex} onClick={() => setChipFilter(prev => prev === c.hex ? 'all' : c.hex)}
+            style={chipStyle(chipFilter === c.hex, c.hex)}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.hex, display: 'inline-block', border: '1px solid rgba(0,0,0,0.1)' }} />
+              {c.label ?? c.hex.slice(0, 7)}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Results count when searching */}
+      {(debouncedQuery || chipFilter !== 'all') && (
+        <p style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+          {filtered.length} {filtered.length === 1 ? 'risultato' : 'risultati'}
+        </p>
       )}
 
-      {Object.entries(byMonth).map(([monthKey, monthEntries]) => {
-        const [y, m] = monthKey.split('-').map(Number)
-        return (
-          <div key={monthKey}>
-            {/* Month header */}
-            <p className="text-[10px] font-bold uppercase tracking-[0.13em] mb-3" style={{ color: 'var(--color-muted)' }}>
-              {MONTH_FULL[m-1]} {y}
-            </p>
-
-            <div className="space-y-3">
-              {monthEntries.map(entry => {
-                const d     = new Date(entry.date + 'T12:00:00')
-                const light = needsLight(entry.color_hex)
-
-                return (
-                  <div
-                    key={entry.id}
-                    className="rounded-2xl overflow-hidden"
-                    style={{
-                      border: `1.5px solid ${entry.color_hex}30`,
-                      background: 'var(--color-surface-raised)',
-                      boxShadow: `var(--shadow-xs)`,
-                    }}
-                  >
-                    {/* Color strip + date */}
-                    <div style={{
-                      background: entry.color_hex,
-                      padding: '10px 16px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{
-                          fontSize: 12, fontWeight: 800, letterSpacing: '-0.02em',
-                          color: light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.8)',
-                        }}>
+      {filtered.length === 0 ? (
+        <div className="card p-8 text-center">
+          <p style={{ fontSize: 28, marginBottom: 8 }}>🔍</p>
+          <p style={{ fontSize: 14, color: 'var(--color-muted)' }}>Nessun risultato</p>
+        </div>
+      ) : (
+        Object.entries(byMonth).map(([monthKey, monthEntries]) => {
+          const [y, m] = monthKey.split('-').map(Number)
+          return (
+            <div key={monthKey}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.13em] mb-3" style={{ color: 'var(--color-muted)' }}>
+                {MONTH_FULL[m-1]} {y}
+              </p>
+              <div className="space-y-3">
+                {monthEntries.map(entry => {
+                  const d = new Date(entry.date + 'T12:00:00')
+                  const light = needsLight(entry.color_hex)
+                  return (
+                    <div key={entry.id} className="rounded-2xl overflow-hidden"
+                      style={{ border: `1.5px solid ${entry.color_hex}30`, background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-xs)' }}>
+                      <div style={{ background: entry.color_hex, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.8)' }}>
                           {entry.mood_label ?? 'Personalizzato'}
                         </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {entry.location_label && (
-                          <span style={{
-                            fontSize: 9,
-                            color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)',
-                          }}>
-                            📍 {entry.location_label}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {entry.location_label && <span style={{ fontSize: 9, color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)' }}>📍 {entry.location_label}</span>}
+                          <span style={{ fontSize: 10, color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)' }}>
+                            {DAY_NAMES[d.getDay()]} {d.getDate()}
                           </span>
+                        </div>
+                      </div>
+                      <div style={{ padding: '10px 16px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {entry.note ? (
+                          <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-foreground)' }}>"{entry.note}"</p>
+                        ) : (
+                          <p style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>Nessuna nota.</p>
                         )}
-                        <span style={{
-                          fontSize: 10,
-                          color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)',
-                        }}>
-                          {DAY_NAMES[d.getDay()]} {d.getDate()}
-                        </span>
+                        {entry.tags && entry.tags.length > 0 && (
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                            {entry.tags.map(t => (
+                              <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: `${entry.color_hex}18`, border: `1px solid ${entry.color_hex}35`, color: 'var(--color-foreground)' }}>
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* Note or empty state */}
-                    <div className="px-4 py-3">
-                      {entry.note ? (
-                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
-                          "{entry.note}"
-                        </p>
-                      ) : (
-                        <p className="text-[12px]" style={{ color: 'var(--color-muted)', fontStyle: 'italic' }}>
-                          Nessuna nota per questo giorno.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })
+      )}
     </div>
   )
 }

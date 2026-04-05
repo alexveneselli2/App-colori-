@@ -53,6 +53,7 @@ interface MoodState {
   commitGrace: (userId: string) => Promise<{ error: string | null }>
   cancelGrace: () => void
   initGrace: (userId: string) => Promise<void>
+  updateGrace: (updates: { colorHex?: string; moodLabel?: string | null; note?: string | null; tags?: string[]; source?: 'palette' | 'custom' }) => void
 }
 
 // Module-level timer handle so it persists across re-renders
@@ -250,6 +251,14 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     if (graceTimer) { clearTimeout(graceTimer); graceTimer = null }
     clearGrace()
     set({ pendingGrace: null })
+  },
+
+  updateGrace: (updates) => {
+    const grace = get().pendingGrace
+    if (!grace) return
+    const updated = { ...grace, ...updates }
+    saveGrace(updated)
+    set({ pendingGrace: updated })
   },
 
   initGrace: async (userId) => {

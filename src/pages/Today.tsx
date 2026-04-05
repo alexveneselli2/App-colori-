@@ -2,9 +2,15 @@ import { useEffect, useRef, useState, type KeyboardEvent, type CSSProperties } f
 import confetti from 'canvas-confetti'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
-import { MOOD_PALETTE } from '../constants/moods'
-import { MONTH_FULL } from '../lib/dateUtils'
+import { useThemeStore } from '../store/useThemeStore'
+import { MOOD_PALETTE, PALETTE_GROUPS } from '../constants/moods'
+import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
+import {
+  getReminderEnabled, getReminderTime,
+  setReminderEnabled, setReminderTime,
+  scheduleReminder, cancelReminder,
+} from '../lib/reminder'
 import ArtGenerator from '../components/ArtGenerator'
 import type { MoodColor } from '../constants/moods'
 
@@ -61,7 +67,7 @@ const ORB_COLORS = ['#FFD000','#FF6B00','#FF0A54','#C77DFF','#00B4D8','#52B788',
 
 export default function Today() {
   const { profile, signOut } = useAuthStore()
-  const { entries, todayEntry, pendingGrace, fetchTodayEntry, saveTodayEntry, fetchEntries, beginGrace, cancelGrace, commitGrace } = useMoodStore()
+  const { entries, todayEntry, pendingGrace, fetchTodayEntry, saveTodayEntry, fetchEntries, beginGrace, cancelGrace, commitGrace, updateGrace } = useMoodStore()
 
   const [loaded, setLoaded]         = useState(false)
   const [tab, setTab]               = useState<Tab>('palette')
@@ -79,6 +85,7 @@ export default function Today() {
   const [error, setError]           = useState<string | null>(null)
   const [showProfile, setShowProfile] = useState(false)
   const [graceTimeLeft, setGraceTimeLeft] = useState<number>(0)
+  const [showEditGrace, setShowEditGrace] = useState(false)
 
   const today = new Date()
 
@@ -189,6 +196,13 @@ export default function Today() {
   // ─── Entry already saved ────────────────────────────────────────────────────
   if (todayEntry) {
     const light = needsLightText(todayEntry.color_hex)
+    const savedAt = todayEntry.created_at
+      ? new Date(todayEntry.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+      : null
+    const weekDays = getWeekDays(today)
+    const entryMap = new Map(entries.map(e => [e.date, e.color_hex]))
+    const todayISO = toISO(today)
+
     return (
       <div className="page-top flex flex-col px-6" style={{ minHeight: '60dvh' }}>
 
@@ -204,66 +218,104 @@ export default function Today() {
           </button>
         </div>
 
-        {/* Color hero */}
-        <div className="flex flex-col items-center gap-6 animate-fade-up">
+        <div className="flex flex-col items-center gap-5 animate-fade-up">
 
-          {/* Big color swatch — tall rectangle, editorial */}
-          <div
-            className="animate-pop-in"
-            style={{
-              width: '82%', maxWidth: 260,
-              aspectRatio: '4/5',
-              borderRadius: 32,
-              backgroundColor: todayEntry.color_hex,
-              boxShadow: `0 0 0 1px ${todayEntry.color_hex}25, 0 24px 72px ${todayEntry.color_hex}65, 0 6px 24px ${todayEntry.color_hex}40`,
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'space-between',
-              padding: '22px 22px 18px',
-            }}
-          >
-            {/* Top: hex */}
-            <p style={{ fontSize: 10, fontFamily: 'monospace',
-              color: light ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.25)',
-              letterSpacing: '0.06em' }}>
+          {/* Big color swatch */}
+          <div className="animate-pop-in" style={{
+            width: '82%', maxWidth: 260, aspectRatio: '4/5', borderRadius: 32,
+            backgroundColor: todayEntry.color_hex,
+            boxShadow: `0 0 0 1px ${todayEntry.color_hex}25, 0 24px 72px ${todayEntry.color_hex}65, 0 6px 24px ${todayEntry.color_hex}40`,
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '22px 22px 18px',
+          }}>
+            <p style={{ fontSize: 10, fontFamily: 'monospace', color: light ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.25)', letterSpacing: '0.06em' }}>
               {todayEntry.color_hex.toUpperCase()}
             </p>
-            {/* Bottom: mood label */}
             {todayEntry.mood_label && (
-              <p style={{
-                fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.05,
-                color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)',
-                fontFamily: 'Inter, system-ui, sans-serif',
-              }}>
+              <p style={{ fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.05, color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)', fontFamily: 'Inter, system-ui, sans-serif' }}>
                 {todayEntry.mood_label}
               </p>
             )}
           </div>
 
-          <div className="text-center space-y-1.5 w-full max-w-xs">
-            <p className="text-[17px] font-extrabold tracking-[-0.03em]" style={{ color: 'var(--color-foreground)' }}>
-              Il tuo colore è custodito.
-            </p>
-            {todayEntry.note && (
-              <p className="text-[13px] italic leading-relaxed px-4" style={{ color: 'var(--color-muted)' }}>
-                "{todayEntry.note}"
-              </p>
-            )}
-            {todayEntry.location_label && (
-              <p className="text-[11px] flex items-center justify-center gap-1" style={{ color: 'var(--color-muted)' }}>
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                  <path d="M5 2.5C5 2.5 8 5.5 8 7c0 1-1.3 1.5-3 1.5S2 8 2 7c0-1.5 3-4.5 3-4.5z" stroke="currentColor" strokeWidth="1.2"/>
-                </svg>
-                {todayEntry.location_label}
-              </p>
-            )}
-            <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-              Torna domani per il prossimo.
-            </p>
+          {/* Summary card */}
+          <div className="animate-fade-up w-full max-w-xs card p-4" style={{ animationDelay: '0.06s' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {savedAt && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ color: 'var(--color-muted)', flexShrink: 0 }}>
+                    <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <path d="M6.5 3.5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>Salvato alle <strong style={{ color: 'var(--color-foreground)' }}>{savedAt}</strong></span>
+                </div>
+              )}
+              {todayEntry.location_label && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--color-muted)', flexShrink: 0 }}>
+                    <circle cx="6" cy="5" r="2.2" stroke="currentColor" strokeWidth="1.2"/>
+                    <path d="M6 3C6 3 9.5 6.5 9.5 8c0 1.1-1.6 2-3.5 2S2.5 9.1 2.5 8C2.5 6.5 6 3 6 3z" stroke="currentColor" strokeWidth="1.2"/>
+                  </svg>
+                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{todayEntry.location_label}</span>
+                </div>
+              )}
+              {todayEntry.tags && todayEntry.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {todayEntry.tags.map(t => (
+                    <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: `${todayEntry.color_hex}18`, border: `1px solid ${todayEntry.color_hex}35`, color: 'var(--color-foreground)' }}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {todayEntry.note && (
+                <p style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--color-muted)', lineHeight: 1.5 }}>
+                  "{todayEntry.note}"
+                </p>
+              )}
+            </div>
           </div>
 
+          {/* Week strip */}
+          <div className="animate-fade-up w-full max-w-xs" style={{ animationDelay: '0.10s' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>La tua settimana</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+              {weekDays.map((d) => {
+                const iso = toISO(d)
+                const hex = entryMap.get(iso)
+                const isToday = iso === todayISO
+                const isFuture = d > today
+                return (
+                  <div key={iso} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 1 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--color-muted)' }}>{DAY_INITIAL[d.getDay() === 0 ? 6 : d.getDay() - 1]}</span>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      backgroundColor: hex ?? (isFuture ? 'transparent' : 'var(--color-subtle)'),
+                      border: isToday ? `2.5px solid var(--color-foreground)` : `1.5px solid ${hex ? hex + '50' : 'var(--color-subtle)'}`,
+                      transition: 'background-color 0.3s ease',
+                      boxShadow: hex ? `0 2px 8px ${hex}40` : undefined,
+                    }} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Share button */}
+          {'share' in navigator && (
+            <button
+              className="animate-fade-up"
+              style={{ animationDelay: '0.14s', padding: '10px 24px', borderRadius: 16, border: '1.5px solid var(--color-subtle)', background: 'var(--color-surface-raised)', color: 'var(--color-foreground)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+              onClick={() => navigator.share({ text: `Oggi mi sento ${todayEntry.mood_label ?? todayEntry.color_hex} — Iride` })}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Condividi il colore di oggi
+            </button>
+          )}
+
           {/* Art Generator */}
-          <div style={{ width: '100%', maxWidth: 400 }}>
+          <div className="animate-fade-up w-full max-w-xs" style={{ animationDelay: '0.18s' }}>
             <ArtGenerator entries={entries} height={220} />
           </div>
         </div>
@@ -377,6 +429,21 @@ export default function Today() {
             </div>
           </div>
 
+          {/* Modifica button */}
+          <button
+            onClick={() => setShowEditGrace(true)}
+            style={{
+              padding: '10px 24px', borderRadius: 16, cursor: 'pointer',
+              background: 'var(--color-surface-raised)',
+              border: '1.5px solid var(--color-subtle)',
+              color: 'var(--color-foreground)',
+              fontSize: 13, fontWeight: 600,
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+          >
+            ✏️ Modifica
+          </button>
+
           {/* Art Generator */}
           <div style={{ width: '100%', maxWidth: 400 }}>
             <ArtGenerator entries={entries} height={220} />
@@ -384,6 +451,13 @@ export default function Today() {
         </div>
 
         {showProfile && <ProfileSheet profile={profile} onClose={() => setShowProfile(false)} onSignOut={signOut} />}
+        {showEditGrace && (
+          <EditGraceSheet
+            grace={pendingGrace}
+            onSave={(updates) => { updateGrace(updates); setShowEditGrace(false) }}
+            onClose={() => setShowEditGrace(false)}
+          />
+        )}
       </div>
     )
   }
@@ -478,62 +552,12 @@ export default function Today() {
         {/* ── Tab content ── */}
         <div key={tabKey} className="tab-content-enter">
 
-          {/* PALETTE TAB */}
+          {/* PALETTE TAB — grouped */}
           {tab === 'palette' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-              {MOOD_PALETTE.map((mood, i) => {
-                const row = Math.min(Math.floor(i / 4) + 1, 4)
-                const isSelected = selected?.hex === mood.hex
-                const light = needsLightText(mood.hex)
-                return (
-                  <button
-                    key={mood.hex}
-                    onClick={() => handleSelectMood(mood)}
-                    className={`swatch-row-${row}`}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                  >
-                    <div style={{
-                      width: '100%', paddingTop: '110%', borderRadius: isSelected ? 22 : 18,
-                      backgroundColor: mood.hex, position: 'relative',
-                      transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                      transform: isSelected ? 'scale(1.07)' : 'scale(1)',
-                      boxShadow: isSelected
-                        ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 30px ${mood.hex}70`
-                        : `0 4px 14px ${mood.hex}45`,
-                    }}>
-                      {/* Label inside swatch */}
-                      <div style={{
-                        position: 'absolute', bottom: 8, left: 8, right: 8,
-                        pointerEvents: 'none',
-                      }}>
-                        <p style={{
-                          fontSize: 9.5,
-                          fontWeight: isSelected ? 800 : 600,
-                          color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
-                          lineHeight: 1.1,
-                          fontFamily: 'Inter, system-ui, sans-serif',
-                        }}>
-                          {mood.label}
-                        </p>
-                      </div>
-                      {/* Selected checkmark */}
-                      {isSelected && (
-                        <div style={{
-                          position: 'absolute', top: 8, right: 8,
-                          width: 18, height: 18, borderRadius: '50%',
-                          background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                            <path d="M1 4l3 3 5-6" stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <PaletteGrouped
+              selected={selected}
+              onSelect={(mood) => handleSelectMood(mood)}
+            />
           )}
 
           {/* CUSTOM COLOR TAB */}
@@ -647,48 +671,112 @@ export default function Today() {
   )
 }
 
-// ─── Italian emotion lexicon for validation ───────────────────────────────────
-const EMOTION_WORDS = [
-  'gioia','felice','felicità','gioioso','contento','contentezza','allegro','allegria',
-  'euforia','euforico','eccitato','eccitazione','esaltato','esaltazione',
-  'estasi','estatico','estasiat',
-  'passione','appassionato','ardore',
-  'tenerezza','tenero','dolcezza','dolce','affetto',
-  'nostalgia','nostalgico','malinconico','malinconia',
-  'meraviglia','meraviglioso','stupore','stuporoso','ammirazione',
-  'anticipazione','attesa','speranza','speranzoso','ottimismo','ottimista',
-  'sorpresa','sorpreso','stupito','stupore',
-  'gratitudine','grato','riconoscente',
-  'fiducia','fiducioso','sicuro','sicurezza','calmo','calma','serenità','sereno',
-  'tranquillo','tranquillità','pace','pacifico','rilassato','rilassatezza',
-  'solitudine','solo','isolato','isolamento',
-  'tristezza','triste','abbattuto','abbattimento','depresso','depressione',
-  'rabbia','arrabbiato','furioso','furibondo','ira','collera','frustrazione','frustrato',
-  'paura','spaventato','ansioso','ansia','terrore','terrorizzato','preoccupato',
-  'disgusto','disgustato','nausea','ribrezzo','repulsione',
-  'stanco','stanchezza','esausto','esaurimento','spossato',
-  'confuso','confusione','disorientato','incerto','incertezza',
-  'deluso','delusione','amarezza','amaro',
-  'imbarazzo','imbarazzato','vergogna',
-  'invidia','geloso','gelosia',
-  'orgoglio','orgoglioso','fiero',
-  'amore','innamorato','affettuoso',
-  'bene','male','così così','neutro','normale','ok','okay',
-]
+// ─── Palette grouped with collapsible sections ───────────────────────────────
+function PaletteGrouped({ selected, onSelect }: {
+  selected: Selection | null
+  onSelect: (mood: MoodColor) => void
+}) {
+  const [openIndex, setOpenIndex] = useState(0)
 
-function validateEmotion(text: string): { valid: boolean; suggestion: string | null } {
-  if (!text.trim()) return { valid: false, suggestion: null }
-  const lower = text.toLowerCase().trim()
-  const found = EMOTION_WORDS.some(w => lower.includes(w) || w.includes(lower))
-  if (found) return { valid: true, suggestion: null }
+  const toggle = (i: number) => setOpenIndex(prev => prev === i ? -1 : i)
 
-  // Try to suggest a close palette match
-  const suggestion = MOOD_PALETTE.find(m => {
-    const ml = m.label.toLowerCase()
-    return lower.split(' ').some(w => ml.includes(w) || w.includes(ml.slice(0,4)))
-  })?.label ?? null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {PALETTE_GROUPS.map((group, gi) => {
+        const isOpen = openIndex === gi
+        return (
+          <div key={group.name}>
+            {/* Header */}
+            <button
+              onClick={() => toggle(gi)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px', borderRadius: isOpen ? '16px 16px 0 0' : 16,
+                background: 'var(--color-surface-raised)',
+                border: '1.5px solid var(--color-subtle)',
+                cursor: 'pointer', transition: 'border-radius 0.2s',
+              }}
+            >
+              {/* Color dots */}
+              <div style={{ display: 'flex', gap: 3 }}>
+                {group.emotions.map(e => (
+                  <div key={e.hex} style={{
+                    width: 10, height: 10, borderRadius: '50%', backgroundColor: e.hex,
+                    flexShrink: 0,
+                  }} />
+                ))}
+              </div>
+              <span style={{ flex: 1, textAlign: 'left', fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)' }}>
+                {group.name}
+              </span>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+                style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease', color: 'var(--color-muted)' }}>
+                <path d="M2 5l5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
 
-  return { valid: false, suggestion }
+            {/* Content with smooth max-height transition */}
+            <div style={{
+              overflow: 'hidden',
+              maxHeight: isOpen ? 200 : 0,
+              transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1)',
+              background: 'var(--color-surface-raised)',
+              borderRadius: '0 0 16px 16px',
+              border: isOpen ? '1.5px solid var(--color-subtle)' : 'none',
+              borderTop: 'none',
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, padding: '10px 14px 14px' }}>
+                {group.emotions.map(mood => {
+                  const isSelected = selected?.hex === mood.hex
+                  const light = needsLightText(mood.hex)
+                  return (
+                    <button
+                      key={mood.hex}
+                      onClick={() => { onSelect(mood); toggle(-1) }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      aria-label={`${mood.label}: ${mood.emotion_en}`}
+                    >
+                      <div style={{
+                        width: '100%', paddingTop: '100%', borderRadius: isSelected ? 18 : 14,
+                        backgroundColor: mood.hex, position: 'relative',
+                        transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                        transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                        boxShadow: isSelected
+                          ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${mood.hex}, 0 8px 24px ${mood.hex}70`
+                          : `0 3px 10px ${mood.hex}45`,
+                      }}>
+                        <div style={{ position: 'absolute', bottom: 6, left: 4, right: 4, pointerEvents: 'none' }}>
+                          <p style={{
+                            fontSize: 8, fontWeight: isSelected ? 800 : 600,
+                            color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
+                            lineHeight: 1.1, fontFamily: 'Inter, system-ui, sans-serif',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
+                            {mood.label}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div style={{
+                            position: 'absolute', top: 5, right: 5, width: 14, height: 14, borderRadius: '50%',
+                            background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                              <path d="M1 3l2 2 4-4" stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ─── Custom Color Tab ─────────────────────────────────────────────────────────
@@ -698,37 +786,20 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
   onUse: (label: string) => void
 }) {
   const [sentiment, setSentiment] = useState('')
-  const [validationMsg, setValidationMsg] = useState<string | null>(null)
-  const [validationOk, setValidationOk] = useState(false)
   const light = needsLightText(customHex)
 
-  const handleValidate = () => {
-    if (!sentiment.trim()) {
-      setValidationMsg('Inserisci un sentimento per questo colore.')
-      setValidationOk(false)
-      return
-    }
-    const { valid, suggestion } = validateEmotion(sentiment)
-    if (valid) {
-      setValidationOk(true)
-      setValidationMsg(null)
-    } else {
-      setValidationOk(false)
-      setValidationMsg(suggestion
-        ? `Non sembra un sentimento riconosciuto. Intendevi "${suggestion}"?`
-        : 'Descrivi come ti senti — es. "felice", "nostalgico", "in pace".')
-    }
-  }
+  // Palette suggestions: filter by label prefix (case-insensitive), max 3
+  const suggestions = sentiment.trim().length >= 1
+    ? MOOD_PALETTE.filter(m =>
+        m.label.toLowerCase().startsWith(sentiment.toLowerCase().trim())
+      ).slice(0, 3)
+    : []
+
+  const isValid = sentiment.trim().length >= 2
 
   const handleUse = () => {
-    if (!sentiment.trim()) {
-      setValidationMsg('Inserisci come ti senti con questo colore.')
-      return
-    }
-    handleValidate()
-    if (validateEmotion(sentiment).valid || sentiment.trim().length >= 3) {
-      onUse(sentiment.trim())
-    }
+    if (!isValid) return
+    onUse(sentiment.trim())
   }
 
   return (
@@ -764,31 +835,44 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
             <input
               type="text"
               value={sentiment}
-              onChange={e => { setSentiment(e.target.value); setValidationMsg(null); setValidationOk(false) }}
-              onBlur={handleValidate}
+              onChange={e => setSentiment(e.target.value)}
               placeholder="es. malinconico, in pace, energico…"
               maxLength={40}
               className="w-full px-4 py-3 rounded-xl text-[13px] focus:outline-none transition-all"
               style={{
                 background: 'var(--color-surface)',
-                border: `1.5px solid ${validationOk ? '#52B788' : validationMsg ? '#FF0A54' : 'var(--color-subtle)'}`,
+                border: `1.5px solid ${isValid ? `${customHex}60` : 'var(--color-subtle)'}`,
                 color: 'var(--color-foreground)',
               }}
             />
-            {validationMsg && (
-              <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: '#FF0A54' }}>
-                {validationMsg}
-              </p>
+            {/* Valid check */}
+            {isValid && (
+              <p className="text-[11px] mt-1.5" style={{ color: '#52B788' }}>✓</p>
             )}
-            {validationOk && (
-              <p className="text-[11px] mt-1.5" style={{ color: '#52B788' }}>
-                ✓ Sentimento riconosciuto
-              </p>
+            {/* Palette suggestions */}
+            {suggestions.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                {suggestions.map(s => (
+                  <button
+                    key={s.hex}
+                    onClick={() => { setSentiment(s.label); setCustomHex(s.hex) }}
+                    style={{
+                      fontSize: 11, padding: '4px 10px', borderRadius: 20,
+                      background: `${s.hex}20`, border: `1px solid ${s.hex}40`,
+                      color: 'var(--color-foreground)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.hex, display: 'inline-block' }} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          <button onClick={handleUse}
-            className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97]"
+          <button onClick={handleUse} disabled={!isValid}
+            className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97] disabled:opacity-30"
             style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
             Usa questo colore →
           </button>
@@ -996,6 +1080,158 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
   )
 }
 
+// ─── Edit Grace Sheet ────────────────────────────────────────────────────────
+function EditGraceSheet({ grace, onSave, onClose }: {
+  grace: import('../lib/gracePeriod').GraceEntry | null
+  onSave: (updates: { colorHex?: string; moodLabel?: string | null; note?: string | null; tags?: string[]; source?: 'palette' | 'custom' }) => void
+  onClose: () => void
+}) {
+  const [editNote, setEditNote] = useState(grace?.note ?? '')
+  const [editTags, setEditTags] = useState<string[]>(grace?.tags ?? [])
+  const [editTagInput, setEditTagInput] = useState('')
+  const [editSelected, setEditSelected] = useState<{ hex: string; label: string | null } | null>(
+    grace ? { hex: grace.colorHex, label: grace.moodLabel } : null
+  )
+  const [groupOpen, setGroupOpen] = useState(-1)
+
+  const addTag = (val: string) => {
+    const t = val.trim().replace(/,/g, '')
+    if (t && editTags.length < 5 && !editTags.includes(t)) setEditTags(prev => [...prev, t])
+    setEditTagInput('')
+  }
+
+  const handleSave = () => {
+    onSave({
+      colorHex: editSelected?.hex,
+      moodLabel: editSelected?.label ?? null,
+      source: MOOD_PALETTE.some(m => m.hex === editSelected?.hex) ? 'palette' : 'custom',
+      note: editNote.trim() || null,
+      tags: editTags,
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
+      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md mx-4 rounded-3xl overflow-hidden animate-slide-up"
+        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: '90dvh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--color-foreground)' }}>Modifica scelta</p>
+          <button onClick={onClose} style={{ color: 'var(--color-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Color preview */}
+          {editSelected && (
+            <div style={{
+              height: 72, borderRadius: 18, backgroundColor: editSelected.hex, transition: 'background-color 0.35s ease',
+              display: 'flex', alignItems: 'flex-end', padding: '0 16px 12px',
+              boxShadow: `0 8px 28px ${editSelected.hex}55`,
+            }}>
+              <p style={{ fontSize: 14, fontWeight: 800, color: needsLightText(editSelected.hex) ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.8)' }}>
+                {editSelected.label ?? editSelected.hex}
+              </p>
+            </div>
+          )}
+
+          {/* Palette groups */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {PALETTE_GROUPS.map((group, gi) => (
+              <div key={group.name}>
+                <button
+                  onClick={() => setGroupOpen(prev => prev === gi ? -1 : gi)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px', borderRadius: groupOpen === gi ? '12px 12px 0 0' : 12,
+                    background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    {group.emotions.map(e => <div key={e.hex} style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: e.hex }} />)}
+                  </div>
+                  <span style={{ flex: 1, textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'var(--color-foreground)' }}>{group.name}</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+                    style={{ transform: groupOpen === gi ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--color-muted)' }}>
+                    <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                <div style={{ overflow: 'hidden', maxHeight: groupOpen === gi ? 120 : 0, transition: 'max-height 0.25s ease',
+                  background: 'var(--color-surface)', borderRadius: '0 0 12px 12px', border: groupOpen === gi ? '1.5px solid var(--color-subtle)' : 'none', borderTop: 'none' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, padding: '8px 12px 12px' }}>
+                    {group.emotions.map(mood => {
+                      const isSel = editSelected?.hex === mood.hex
+                      return (
+                        <button key={mood.hex} onClick={() => { setEditSelected({ hex: mood.hex, label: mood.label }); setGroupOpen(-1) }}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                          <div style={{
+                            width: '100%', paddingTop: '100%', borderRadius: isSel ? 14 : 10,
+                            backgroundColor: mood.hex, position: 'relative',
+                            transform: isSel ? 'scale(1.12)' : 'scale(1)', transition: 'transform 0.2s',
+                            boxShadow: isSel ? `0 0 0 2px var(--color-surface-raised), 0 0 0 3.5px ${mood.hex}` : undefined,
+                          }} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Note */}
+          <div>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+              Nota
+            </p>
+            <textarea value={editNote} onChange={e => setEditNote(e.target.value)} maxLength={280} rows={2}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 14, fontSize: 13, resize: 'none', background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', outline: 'none', lineHeight: 1.5 }} />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+              Tag
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+              {editTags.map(t => (
+                <span key={t} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {t}
+                  <button onClick={() => setEditTags(prev => prev.filter(x => x !== t))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', padding: 0, lineHeight: 1 }}>×</button>
+                </span>
+              ))}
+            </div>
+            {editTags.length < 5 && (
+              <input value={editTagInput} onChange={e => setEditTagInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(editTagInput) } }}
+                onBlur={() => { if (editTagInput.trim()) addTag(editTagInput) }}
+                placeholder="Aggiungi tag…" maxLength={20}
+                style={{ width: '100%', padding: '8px 14px', borderRadius: 12, fontSize: 12, background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', outline: 'none' }} />
+            )}
+          </div>
+
+          <button onClick={handleSave}
+            className="w-full py-4 rounded-2xl text-[14px] font-extrabold"
+            style={{ background: editSelected?.hex ?? 'var(--color-foreground)', color: editSelected ? (needsLightText(editSelected.hex) ? '#fff' : '#1C1917') : '#fff', boxShadow: editSelected ? `0 6px 20px ${editSelected.hex}55` : undefined }}>
+            Salva modifiche
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Profile sheet ────────────────────────────────────────────────────────────
 const profileBtnStyle: CSSProperties = {
   width: 36, height: 36, borderRadius: '50%',
@@ -1011,10 +1247,40 @@ const profileBtnStyle: CSSProperties = {
 function ProfileSheet({ profile, onClose, onSignOut }: {
   profile: { display_name: string; username: string } | null; onClose: () => void; onSignOut: () => void
 }) {
+  const { theme, setTheme } = useThemeStore()
+  const [reminderOn,   setReminderOn]   = useState(getReminderEnabled)
+  const [reminderTime, setReminderTimeS] = useState(getReminderTime)
+  const themeOptions: { value: 'light' | 'dark' | 'system'; label: string }[] = [
+    { value: 'light',  label: '☀️ Chiaro' },
+    { value: 'dark',   label: '🌙 Scuro' },
+    { value: 'system', label: '⚙️ Auto' },
+  ]
+
+  const toggleReminder = async () => {
+    if (!reminderOn) {
+      if ('Notification' in window && Notification.permission === 'denied') {
+        alert('Le notifiche sono bloccate. Abilitale nelle impostazioni del browser.')
+        return
+      }
+      setReminderEnabled(true)
+      setReminderOn(true)
+      await scheduleReminder(reminderTime)
+    } else {
+      setReminderEnabled(false)
+      setReminderOn(false)
+      cancelReminder()
+    }
+  }
+
+  const handleTimeChange = (t: string) => {
+    setReminderTimeS(t)
+    setReminderTime(t)
+    if (reminderOn) scheduleReminder(t)
+  }
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
-      style={{ background: 'rgba(28,25,23,0.50)', backdropFilter: 'blur(16px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      style={{ background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(16px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
       onClick={onClose}
     >
       <div
@@ -1039,6 +1305,81 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
             <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>@{profile?.username}</p>
           </div>
         </div>
+
+        <div style={{ height: 1, background: 'var(--color-subtle)' }} />
+
+        {/* Theme selector */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+            Tema
+          </p>
+          <div style={{ display: 'flex', padding: 4, gap: 4, borderRadius: 16, background: 'var(--color-subtle)' }}>
+            {themeOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setTheme(opt.value)}
+                className="flex-1 py-2 rounded-xl text-[12px] font-semibold transition-all"
+                style={{
+                  background: theme === opt.value ? 'var(--color-surface-raised)' : 'transparent',
+                  color: theme === opt.value ? 'var(--color-foreground)' : 'var(--color-muted)',
+                  boxShadow: theme === opt.value ? 'var(--shadow-xs)' : undefined,
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ height: 1, background: 'var(--color-subtle)' }} />
+
+        {/* Daily reminder */}
+        {'Notification' in window && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+              Reminder giornaliero
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 16, background: 'var(--color-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🔔</span>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)', margin: 0 }}>
+                    Ricordami ogni giorno
+                  </p>
+                  {reminderOn && (
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={e => handleTimeChange(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        fontSize: 11, color: 'var(--color-muted)',
+                        background: 'transparent', border: 'none', outline: 'none',
+                        padding: 0, marginTop: 2, cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+              <div
+                onClick={toggleReminder}
+                style={{
+                  width: 40, height: 24, borderRadius: 99, position: 'relative', flexShrink: 0, cursor: 'pointer',
+                  background: reminderOn ? 'var(--color-foreground)' : 'var(--color-muted)',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%',
+                  background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  left: reminderOn ? 19 : 3,
+                  transition: 'left 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                }} />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ height: 1, background: 'var(--color-subtle)' }} />
 

@@ -24,10 +24,21 @@ export default function Export() {
   const [showUsername, setShowUsername] = useState(true)
   const [exporting,    setExporting]   = useState(false)
   const [shared,       setShared]      = useState(false)
+  const [preview,      setPreview]     = useState(false)
 
   const today = new Date()
   const year  = today.getFullYear()
   const month = today.getMonth()
+
+  // Swipe-down to close preview
+  const swipeStartY = useRef<number | null>(null)
+  const handlePreviewTouchStart = (e: React.TouchEvent) => { swipeStartY.current = e.touches[0].clientY }
+  const handlePreviewTouchEnd   = (e: React.TouchEvent) => {
+    if (swipeStartY.current !== null && e.changedTouches[0].clientY - swipeStartY.current > 60) {
+      setPreview(false)
+    }
+    swipeStartY.current = null
+  }
 
   useEffect(() => {
     if (profile && !loaded) {
@@ -297,7 +308,7 @@ export default function Export() {
       </div>
 
       {/* Canvas preview */}
-      <div className="px-5 mb-6 flex justify-center">
+      <div className="px-5 mb-6 flex flex-col items-center gap-3">
         <div style={{
           width:        CANVAS_W * scale,
           height:       previewH,
@@ -328,7 +339,118 @@ export default function Export() {
             />
           </div>
         </div>
+
+        {/* Anteprima button */}
+        <button
+          onClick={() => setPreview(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-2xl text-[12px] font-semibold transition-all active:scale-[0.97]"
+          style={{ background: 'var(--color-subtle)', color: 'var(--color-foreground)' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <ellipse cx="7" cy="7" rx="6" ry="4.5" stroke="currentColor" strokeWidth="1.5"/>
+            <circle cx="7" cy="7" r="1.8" fill="currentColor"/>
+          </svg>
+          Anteprima a schermo intero
+        </button>
       </div>
+
+      {/* Full-screen preview overlay */}
+      {preview && (
+        <div
+          onClick={() => setPreview(false)}
+          onTouchStart={handlePreviewTouchStart}
+          onTouchEnd={handlePreviewTouchEnd}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            animation: 'fadeIn 0.18s ease both',
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={e => { e.stopPropagation(); setPreview(false) }}
+            style={{
+              position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 16px)', right: 16,
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.12)', border: 'none',
+              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: 18, lineHeight: 1,
+            }}
+          >✕</button>
+
+          {/* Swipe hint */}
+          <div style={{ position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 16px)', left: '50%', transform: 'translateX(-50%)' }}>
+            <div style={{ width: 32, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.25)' }} />
+          </div>
+
+          {/* Canvas scaled to fit screen */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              animation: 'previewIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
+              borderRadius: 16, overflow: 'hidden',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+              flexShrink: 0,
+            }}
+          >
+            {(() => {
+              const maxH = window.innerHeight * 0.72
+              const maxW = window.innerWidth  * 0.9
+              const s    = Math.min(maxW / CANVAS_W, maxH / canvasH)
+              return (
+                <div style={{ width: CANVAS_W * s, height: canvasH * s, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ width: CANVAS_W, height: canvasH, transform: `scale(${s})`, transformOrigin: 'top left' }}>
+                    <ExportCanvas
+                      entriesMap={entriesMap}
+                      mode={mode} bg={bg} style={style} format={format}
+                      font={font} cellShape={cellShape} cellGlow={cellGlow}
+                      username={showUsername ? profile?.username : undefined}
+                      year={year} month={month}
+                    />
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Share + Download in overlay */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 24 }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={handleShare}
+              disabled={exporting}
+              style={{
+                padding: '12px 24px', borderRadius: 16, fontSize: 14, fontWeight: 600,
+                background: '#fff', color: '#000', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, opacity: exporting ? 0.5 : 1,
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M11 1l4 4-4 4M15 5H5a4 4 0 000 8h1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {shared ? 'Condiviso!' : 'Condividi'}
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={exporting}
+              style={{
+                padding: '12px 24px', borderRadius: 16, fontSize: 14, fontWeight: 600,
+                background: 'rgba(255,255,255,0.15)', color: '#fff',
+                border: '1.5px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, opacity: exporting ? 0.5 : 1,
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1v9M5 8l3 3 3-3M1 13h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Scarica
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="px-5 space-y-3 mt-auto pb-2">
