@@ -34,20 +34,20 @@ export default function Auth() {
   }
 
   const translateError = (msg: string): string => {
-    if (msg.includes('Invalid login credentials'))  return 'Email o password non corretti.'
-    if (msg.includes('Email not confirmed'))         return 'Devi confermare la tua email. Controlla la casella di posta.'
-    if (msg.includes('User already registered'))     return 'Esiste già un account con questa email. Prova ad accedere.'
-    if (msg.includes('Password should be at least')) return 'La password deve essere di almeno 6 caratteri.'
-    if (msg.includes('Unable to validate email'))    return 'Formato email non valido.'
+    if (msg.includes('Invalid login credentials'))  return 'Incorrect email or password.'
+    if (msg.includes('Email not confirmed'))         return 'Please confirm your email. Check your inbox.'
+    if (msg.includes('User already registered'))     return 'An account with this email already exists. Try logging in.'
+    if (msg.includes('Password should be at least')) return 'Password must be at least 6 characters.'
+    if (msg.includes('Unable to validate email'))    return 'Invalid email format.'
     if (/load failed|network|fetch|failed to fetch/i.test(msg))
-      return 'Connessione a Supabase non riuscita. Verifica le credenziali in .env.local oppure usa la demo.'
+      return 'Could not connect to Supabase. Check credentials in .env.local or use the demo.'
     return msg
   }
 
   const handle = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!configured) {
-      setError('Supabase non configurato. Usa la modalità demo per esplorare l\'app, oppure configura le credenziali.')
+      setError('Supabase not configured. Use demo mode to explore the app, or set up your credentials.')
       return
     }
     setError(null)
@@ -73,7 +73,7 @@ export default function Auth() {
             navigate('/onboarding')
           } else {
             // Email confirmation required
-            setInfo('Quasi fatto! Controlla la tua email e clicca il link di conferma. Poi torna qui e accedi.')
+            setInfo('Almost done! Check your email and click the confirmation link. Then come back and sign in.')
             setMode('login')
             setPass('')
           }
@@ -126,10 +126,10 @@ export default function Auth() {
               Iride
             </h1>
             <p className="text-[16px] leading-snug font-semibold" style={{ color: 'var(--color-foreground)' }}>
-              Il diario del tuo animo,<br />in colori.
+              Your inner world,<br />in colors.
             </p>
             <p className="text-[13px] mt-1.5" style={{ color: 'var(--color-muted)' }}>
-              Un colore ogni giorno. Per sempre.
+              One color every day. Forever.
             </p>
           </div>
 
@@ -137,10 +137,10 @@ export default function Auth() {
           {!configured && (
             <div className="mb-5 px-4 py-3.5 rounded-2xl" style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}>
               <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>
-                Supabase non configurato
+                Supabase not configured
               </p>
               <p className="text-[11px] leading-relaxed" style={{ color: '#B45309' }}>
-                Per usare auth reale, aggiungi <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> e <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code> nei GitHub Secrets. Puoi comunque usare la demo qui sotto.
+                To use real auth, add <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> and <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code> to GitHub Secrets. You can still use the demo below.
               </p>
             </div>
           )}
@@ -160,7 +160,7 @@ export default function Auth() {
                   opacity:    !configured ? 0.5 : 1,
                 }}
               >
-                {m === 'login' ? 'Accedi' : 'Registrati'}
+                {m === 'login' ? 'Sign in' : 'Sign up'}
               </button>
             ))}
           </div>
@@ -185,7 +185,7 @@ export default function Auth() {
             />
             <input
               type="password"
-              placeholder="Password (min. 6 caratteri)"
+              placeholder="Password (min. 6 characters)"
               value={pass}
               onChange={e => setPass(e.target.value)}
               required
@@ -223,14 +223,14 @@ export default function Auth() {
                 marginTop: 4,
               }}
             >
-              {loading ? '···' : mode === 'login' ? 'Entra →' : 'Crea il profilo →'}
+              {loading ? '···' : mode === 'login' ? 'Enter →' : 'Create profile →'}
             </button>
           </form>
 
           {/* Divider */}
           <div className="relative flex items-center gap-3 my-6">
             <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>oppure</span>
+            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>or</span>
             <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
           </div>
 
@@ -247,14 +247,14 @@ export default function Auth() {
             }}
           >
             <span style={{ fontSize: 16 }}>✦</span>
-            Prova il demo — senza account
+            Try the demo — no account needed
           </button>
 
         </div>
       </div>
 
       <p className="text-center pb-8 text-[11px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-muted)', opacity: 0.4 }}>
-        Iride · Ogni giorno, un colore
+        Iride · One color, every day
       </p>
     </div>
   )

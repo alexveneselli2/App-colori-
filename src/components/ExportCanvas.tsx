@@ -105,9 +105,9 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
 
     // ── HEADER ──────────────────────────────────────────────────────────────
     const getDisplayTitle = () => {
-      if (mode === 'weekly')  return 'I colori della mia settimana'
-      if (mode === 'monthly') return `I colori di ${MONTH_FULL[month]}`
-      return `I colori del ${year}`
+      if (mode === 'weekly')  return 'My week in colors'
+      if (mode === 'monthly') return `My ${MONTH_FULL[month]} in colors`
+      return `My ${year} in colors`
     }
 
     const getDateLabel = () => {

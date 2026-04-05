@@ -56,9 +56,9 @@ export default function Onboarding() {
 
       if (insertErr) {
         if (insertErr.code === '23505') {
-          setError('Username già in uso. Torna indietro e scegline un altro.')
+          setError('Username already taken. Go back and choose another.')
         } else if (/failed|network|fetch/i.test(insertErr.message)) {
-          setError('Connessione non riuscita. Controlla la rete e riprova.')
+          setError('Connection failed. Check your network and try again.')
         } else {
           setError(insertErr.message)
         }
@@ -71,8 +71,8 @@ export default function Onboarding() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setError(/load|network|fetch/i.test(msg)
-        ? 'Connessione non riuscita. Usa "Prova il demo" per testare senza account.'
-        : 'Errore: ' + msg)
+        ? 'Connection failed. Use "Try the demo" to test without an account.'
+        : 'Error: ' + msg)
       setLoading(false)
     }
   }
@@ -82,18 +82,18 @@ export default function Onboarding() {
     <div className="animate-fade-up space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--color-muted)' }}>
-          1 di 3
+          1 of 3
         </p>
         <h2 className="text-[32px] font-extrabold tracking-[-0.04em] leading-tight mb-2" style={{ color: 'var(--color-foreground)' }}>
-          Come ti chiami?
+          What's your name?
         </h2>
         <p className="text-[14px]" style={{ color: 'var(--color-muted)' }}>
-          Il nome che apparirà nel tuo diario.
+          The name that will appear in your journal.
         </p>
       </div>
       <input
         type="text"
-        placeholder="Il tuo nome"
+        placeholder="Your name"
         value={displayName}
         onChange={e => setDisplayName(e.target.value)}
         autoFocus
@@ -111,7 +111,7 @@ export default function Onboarding() {
         className="w-full py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-30"
         style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
       >
-        Avanti →
+        Next →
       </button>
     </div>
   )
@@ -121,13 +121,13 @@ export default function Onboarding() {
     <div className="animate-fade-up space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--color-muted)' }}>
-          2 di 3
+          2 of 3
         </p>
         <h2 className="text-[32px] font-extrabold tracking-[-0.04em] leading-tight mb-2" style={{ color: 'var(--color-foreground)' }}>
-          Scegli un username
+          Choose a username
         </h2>
         <p className="text-[14px]" style={{ color: 'var(--color-muted)' }}>
-          Sarà visibile nelle immagini che esporti.
+          It will appear on the images you export.
         </p>
       </div>
       <div className="relative">
@@ -153,13 +153,13 @@ export default function Onboarding() {
           onClick={() => setStep('name')}
           className="flex-1 py-4 rounded-2xl text-[14px] font-semibold transition-all active:scale-[0.98]"
           style={{ background: 'var(--color-subtle)', color: 'var(--color-foreground)' }}
-        >← Indietro</button>
+        >← Back</button>
         <button
           onClick={() => { if (username.length >= 2) setStep('location') }}
           disabled={username.length < 2}
           className="flex-[2] py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-30"
           style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
-        >Avanti →</button>
+        >Next →</button>
       </div>
     </div>
   )
@@ -169,20 +169,20 @@ export default function Onboarding() {
     <div className="animate-fade-up space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--color-muted)' }}>
-          3 di 3
+          3 of 3
         </p>
         <h2 className="text-[32px] font-extrabold tracking-[-0.04em] leading-tight mb-2" style={{ color: 'var(--color-foreground)' }}>
-          Dove sei?
+          Where are you?
         </h2>
         <p className="text-[14px]" style={{ color: 'var(--color-muted)' }}>
-          Aggiungi il contesto geografico alle tue emozioni.
+          Add geographic context to your emotions.
         </p>
       </div>
 
       {/* City field */}
       <input
         type="text"
-        placeholder="Città o zona (es. Milano, Toscana…)"
+        placeholder="City or area (e.g. New York, California…)"
         value={city}
         onChange={e => setCity(e.target.value)}
         autoFocus
@@ -218,10 +218,10 @@ export default function Onboarding() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold mb-0.5" style={{ color: 'var(--color-foreground)' }}>
-            Posizione GPS automatica
+            Automatic GPS location
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
-            Ogni mood salverà le coordinate per vedere dove eri in quel momento. Puoi cambiarlo dopo.
+            Each mood will save coordinates so you can see where you were. You can change this later.
           </p>
         </div>
       </div>
@@ -237,14 +237,14 @@ export default function Onboarding() {
           onClick={() => setStep('username')}
           className="flex-1 py-4 rounded-2xl text-[14px] font-semibold transition-all active:scale-[0.98]"
           style={{ background: 'var(--color-subtle)', color: 'var(--color-foreground)' }}
-        >← Indietro</button>
+        >← Back</button>
         <button
           onClick={handleSubmit}
           disabled={loading}
           className="flex-[2] py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-40"
           style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
         >
-          {loading ? '···' : 'Inizia il diario →'}
+          {loading ? '···' : 'Start journal →'}
         </button>
       </div>
     </div>

@@ -75,8 +75,8 @@ export default function DeepHistory({ entries }: Props) {
     return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:200, gap:8 }}>
         <p style={{ fontSize:32 }}>🎨</p>
-        <p style={{ fontSize:15, fontWeight:700, color:'var(--color-foreground)' }}>Nessuna voce ancora</p>
-        <p style={{ fontSize:13, color:'var(--color-muted)', textAlign:'center' }}>Inizia a registrare il tuo colore ogni giorno.</p>
+        <p style={{ fontSize:15, fontWeight:700, color:'var(--color-foreground)' }}>No entries yet</p>
+        <p style={{ fontSize:13, color:'var(--color-muted)', textAlign:'center' }}>Start logging your color every day.</p>
       </div>
     )
   }
@@ -215,7 +215,7 @@ export default function DeepHistory({ entries }: Props) {
                   <div style={{ position:'relative', zIndex:4, padding:'0 0 6px', textAlign:'center' }}>
                     {isToday && (
                       <div style={{ fontSize:7, fontWeight:900, color:'rgba(255,255,255,0.95)', marginBottom:1, textTransform:'uppercase', letterSpacing:'0.05em', fontFamily:'Inter, system-ui, sans-serif' }}>
-                        OGG
+                        NOW
                       </div>
                     )}
                     <div style={{ fontSize:8, fontWeight:700, color:'rgba(255,255,255,0.75)', fontFamily:'Inter, system-ui, sans-serif' }}>
@@ -236,7 +236,7 @@ export default function DeepHistory({ entries }: Props) {
 
       {/* Entry count */}
       <p style={{ textAlign:'center', marginTop:10, fontSize:11, color:'var(--color-muted)' }}>
-        {sorted.length} {sorted.length === 1 ? 'giorno registrato' : 'giorni registrati'}
+        {sorted.length} {sorted.length === 1 ? 'day logged' : 'days logged'}
       </p>
     </div>
   )

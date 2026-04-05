@@ -246,7 +246,7 @@ export default function Today() {
                     <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
                     <path d="M6.5 3.5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                   </svg>
-                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>Salvato alle <strong style={{ color: 'var(--color-foreground)' }}>{savedAt}</strong></span>
+                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>Saved at <strong style={{ color: 'var(--color-foreground)' }}>{savedAt}</strong></span>
                 </div>
               )}
               {todayEntry.location_label && (
@@ -305,12 +305,12 @@ export default function Today() {
             <button
               className="animate-fade-up"
               style={{ animationDelay: '0.14s', padding: '10px 24px', borderRadius: 16, border: '1.5px solid var(--color-subtle)', background: 'var(--color-surface-raised)', color: 'var(--color-foreground)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-              onClick={() => navigator.share({ text: `Oggi mi sento ${todayEntry.mood_label ?? todayEntry.color_hex} — Iride` })}
+              onClick={() => navigator.share({ text: `I feel ${todayEntry.mood_label ?? todayEntry.color_hex} — Iride` })}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Condividi il colore di oggi
+              Share today's color
             </button>
           )}
 
@@ -387,13 +387,13 @@ export default function Today() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-foreground)', marginBottom: 2 }}>
-                  Periodo di modifica
+                  Edit window
                 </p>
                 <p style={{ fontSize: 22, fontWeight: 900, fontFamily: 'monospace', color: pendingGrace.colorHex }}>
                   {formatGraceTimer(graceTimeLeft)}
                 </p>
                 <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>
-                  rimasto per modificare
+                  remaining to edit
                 </p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -410,7 +410,7 @@ export default function Today() {
                     fontFamily: 'Inter, system-ui, sans-serif',
                   }}
                 >
-                  Conferma ora
+                  Confirm now
                 </button>
                 <button
                   onClick={() => cancelGrace()}
@@ -423,7 +423,7 @@ export default function Today() {
                     fontFamily: 'Inter, system-ui, sans-serif',
                   }}
                 >
-                  Annulla
+                  Cancel
                 </button>
               </div>
             </div>
@@ -441,7 +441,7 @@ export default function Today() {
               fontFamily: 'Inter, system-ui, sans-serif',
             }}
           >
-            ✏️ Modifica
+            ✏️ Edit
           </button>
 
           {/* Art Generator */}
@@ -497,7 +497,7 @@ export default function Today() {
         <div className="flex gap-2 mb-5">
           {([
             { id: 'palette', label: 'Palette', icon: '⬛' },
-            { id: 'custom',  label: 'Colore',  icon: '🎨' },
+            { id: 'custom',  label: 'Color',  icon: '🎨' },
             { id: 'mix',     label: 'Mix',     icon: '✦' },
           ] as { id: Tab; label: string; icon: string }[]).map(t => (
             <button
@@ -537,7 +537,7 @@ export default function Today() {
             }} />
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-extrabold tracking-tight" style={{ color: 'var(--color-foreground)' }}>
-                {selected.label ?? 'Colore personalizzato'}
+                {selected.label ?? 'Custom color'}
               </p>
               <p className="text-[10px] font-mono" style={{ color: 'var(--color-muted)' }}>{selected.hex.toUpperCase()}</p>
             </div>
@@ -616,12 +616,12 @@ export default function Today() {
                       boxShadow: `0 6px 24px ${blendHex(blendA.hex, blendB.hex, blendRatio)}55`,
                     }}
                   >
-                    Usa questo mix →
+                    Use this mix →
                   </button>
                 </div>
               ) : (
                 <p className="text-center text-[12px] py-4" style={{ color: 'var(--color-muted)' }}>
-                  Seleziona due emozioni per creare il tuo mix
+                  Select two emotions to create your mix
                 </p>
               )}
             </div>
@@ -644,7 +644,7 @@ export default function Today() {
               letterSpacing: '-0.02em',
             }}
           >
-            {selected?.label ? `Oggi mi sento ${selected.label}` : 'Scegli un colore'}
+            {selected?.label ? `I feel ${selected.label}` : 'Choose a color'}
           </button>
         </div>
 
@@ -830,13 +830,13 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
           {/* Sentiment field */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: 'var(--color-muted)' }}>
-              Come ti fa sentire questo colore? *
+              How does this color make you feel? *
             </p>
             <input
               type="text"
               value={sentiment}
               onChange={e => setSentiment(e.target.value)}
-              placeholder="es. malinconico, in pace, energico…"
+              placeholder="e.g. melancholic, at peace, energetic…"
               maxLength={40}
               className="w-full px-4 py-3 rounded-xl text-[13px] focus:outline-none transition-all"
               style={{
@@ -874,7 +874,7 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
           <button onClick={handleUse} disabled={!isValid}
             className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97] disabled:opacity-30"
             style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
-            Usa questo colore →
+            Use this color →
           </button>
         </div>
       </div>
@@ -973,7 +973,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
           <p style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.05em', lineHeight: 1.05,
             color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)',
             fontFamily: 'Inter, system-ui, sans-serif' }}>
-            {selected.label ?? 'Colore personalizzato'}
+            {selected.label ?? 'Custom color'}
           </p>
         </div>
 
@@ -981,12 +981,12 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
           {/* Note textarea */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-              Come mai questo colore? (facoltativo)
+              Why this color? (optional)
             </p>
             <textarea
               value={note}
               onChange={e => onNoteChange(e.target.value)}
-              placeholder="Scrivi una frase sul tuo stato d'animo…"
+              placeholder="Write a note about your mood…"
               maxLength={280}
               rows={2}
               className="w-full px-4 py-3 rounded-2xl text-[13px] focus:outline-none resize-none transition-all"
@@ -1066,7 +1066,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
             <button onClick={onCancel}
               className="flex-1 py-3.5 rounded-2xl text-[14px] font-semibold active:scale-[0.98] transition-all"
               style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
-              Annulla
+              Cancel
             </button>
             <button onClick={onConfirm} disabled={saving}
               className="flex-[2] py-3.5 rounded-2xl text-[14px] font-extrabold active:scale-[0.98] transition-all disabled:opacity-60"
@@ -1123,7 +1123,7 @@ function EditGraceSheet({ grace, onSave, onClose }: {
       >
         {/* Header */}
         <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--color-foreground)' }}>Modifica scelta</p>
+          <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--color-foreground)' }}>Edit choice</p>
           <button onClick={onClose} style={{ color: 'var(--color-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -1251,15 +1251,15 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
   const [reminderOn,   setReminderOn]   = useState(getReminderEnabled)
   const [reminderTime, setReminderTimeS] = useState(getReminderTime)
   const themeOptions: { value: 'light' | 'dark' | 'system'; label: string }[] = [
-    { value: 'light',  label: '☀️ Chiaro' },
-    { value: 'dark',   label: '🌙 Scuro' },
+    { value: 'light',  label: '☀️ Light' },
+    { value: 'dark',   label: '🌙 Dark' },
     { value: 'system', label: '⚙️ Auto' },
   ]
 
   const toggleReminder = async () => {
     if (!reminderOn) {
       if ('Notification' in window && Notification.permission === 'denied') {
-        alert('Le notifiche sono bloccate. Abilitale nelle impostazioni del browser.')
+        alert('Notifications are blocked. Enable them in your browser settings.')
         return
       }
       setReminderEnabled(true)
@@ -1311,7 +1311,7 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
         {/* Theme selector */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-            Tema
+            Theme
           </p>
           <div style={{ display: 'flex', padding: 4, gap: 4, borderRadius: 16, background: 'var(--color-subtle)' }}>
             {themeOptions.map(opt => (
@@ -1337,14 +1337,14 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
         {'Notification' in window && (
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-              Reminder giornaliero
+              Daily reminder
             </p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 16, background: 'var(--color-subtle)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18 }}>🔔</span>
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)', margin: 0 }}>
-                    Ricordami ogni giorno
+                    Remind me every day
                   </p>
                   {reminderOn && (
                     <input
@@ -1389,7 +1389,7 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Esci dall'account
+          Sign out
         </button>
       </div>
     </div>

@@ -37,10 +37,10 @@ export default function History() {
   const todayStr     = toISO(today)
 
   const tabs: { key: Mode; label: string }[] = [
-    { key: 'weekly',   label: 'Sett.' },
-    { key: 'monthly',  label: 'Mese' },
-    { key: 'yearly',   label: 'Anno' },
-    { key: 'diary',    label: 'Diario' },
+    { key: 'weekly',   label: 'Week' },
+    { key: 'monthly',  label: 'Month' },
+    { key: 'yearly',   label: 'Year' },
+    { key: 'diary',    label: 'Diary' },
     { key: 'timeline', label: 'Timeline' },
   ]
 
@@ -136,8 +136,8 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
     return (
       <div className="card p-8 text-center mt-4">
         <p className="text-[32px] mb-3">📖</p>
-        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>Il diario è vuoto</p>
-        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>Quando salvi un colore puoi scrivere una frase. Apparirà qui.</p>
+        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>Your diary is empty</p>
+        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>When you save a color you can write a note. It will appear here.</p>
       </div>
     )
   }
@@ -170,7 +170,7 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
         <input
           type="text" value={query}
           onChange={e => handleSearch(e.target.value)}
-          placeholder="Cerca nelle note e nei tag…"
+          placeholder="Search notes and tags…"
           style={{
             width: '100%', padding: '11px 40px 11px 38px', borderRadius: 16, fontSize: 13,
             background: 'var(--color-surface-raised)', border: '1.5px solid var(--color-subtle)',
@@ -188,9 +188,9 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
 
       {/* Filter chips */}
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }} className="no-scrollbar">
-        <button onClick={() => setChipFilter('all')} style={chipStyle(chipFilter === 'all')}>Tutte</button>
-        <button onClick={() => setChipFilter('note')} style={chipStyle(chipFilter === 'note')}>Con nota</button>
-        <button onClick={() => setChipFilter('location')} style={chipStyle(chipFilter === 'location')}>Con luogo</button>
+        <button onClick={() => setChipFilter('all')} style={chipStyle(chipFilter === 'all')}>All</button>
+        <button onClick={() => setChipFilter('note')} style={chipStyle(chipFilter === 'note')}>With note</button>
+        <button onClick={() => setChipFilter('location')} style={chipStyle(chipFilter === 'location')}>With location</button>
         {top5Colors.map(c => (
           <button key={c.hex} onClick={() => setChipFilter(prev => prev === c.hex ? 'all' : c.hex)}
             style={chipStyle(chipFilter === c.hex, c.hex)}>
@@ -205,14 +205,14 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
       {/* Results count when searching */}
       {(debouncedQuery || chipFilter !== 'all') && (
         <p style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-          {filtered.length} {filtered.length === 1 ? 'risultato' : 'risultati'}
+          {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
         </p>
       )}
 
       {filtered.length === 0 ? (
         <div className="card p-8 text-center">
           <p style={{ fontSize: 28, marginBottom: 8 }}>🔍</p>
-          <p style={{ fontSize: 14, color: 'var(--color-muted)' }}>Nessun risultato</p>
+          <p style={{ fontSize: 14, color: 'var(--color-muted)' }}>No results</p>
         </div>
       ) : (
         Object.entries(byMonth).map(([monthKey, monthEntries]) => {
@@ -244,7 +244,7 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
                         {entry.note ? (
                           <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-foreground)' }}>"{entry.note}"</p>
                         ) : (
-                          <p style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>Nessuna nota.</p>
+                          <p style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>No note.</p>
                         )}
                         {entry.tags && entry.tags.length > 0 && (
                           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>

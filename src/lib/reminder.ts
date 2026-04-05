@@ -44,14 +44,14 @@ export async function scheduleReminder(timeStr?: string) {
     const reg = await navigator.serviceWorker?.ready.catch(() => null)
     if (reg) {
       reg.showNotification('Iride', {
-        body: 'Qual è il colore di oggi? Registra il tuo stato d\'animo.',
+        body: "What's your color today? Log your mood.",
         icon: '/App-colori-/icon-192.svg',
         badge: '/App-colori-/icon-192.svg',
         tag: 'iride-daily',
       })
     } else {
       new Notification('Iride', {
-        body: 'Qual è il colore di oggi?',
+        body: "What's your color today?",
         icon: '/App-colori-/icon-192.svg',
       })
     }

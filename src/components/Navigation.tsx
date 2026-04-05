@@ -31,7 +31,7 @@ export default function Navigation() {
   const tabs = [
     {
       to: '/',
-      label: 'Oggi',
+      label: 'Today',
       badge: showTodayBadge,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -48,7 +48,7 @@ export default function Navigation() {
     },
     {
       to: '/history',
-      label: 'Memoria',
+      label: 'Memory',
       badge: false,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -69,7 +69,7 @@ export default function Navigation() {
     },
     {
       to: '/stats',
-      label: 'Analisi',
+      label: 'Insights',
       badge: false,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -87,7 +87,7 @@ export default function Navigation() {
     },
     {
       to: '/export',
-      label: 'Esporta',
+      label: 'Export',
       badge: false,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

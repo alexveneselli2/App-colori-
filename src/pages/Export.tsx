@@ -161,10 +161,10 @@ export default function Export() {
       {/* Header */}
       <div className="px-5 pb-3">
         <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] mb-1" style={{ color: 'var(--color-foreground)' }}>
-          Esporta
+          Export
         </h1>
         <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-          Crea un poster da condividere sui social
+          Create a poster to share on social media
         </p>
       </div>
 
@@ -175,19 +175,19 @@ export default function Export() {
         <div className="flex gap-3">
           <div className="flex-[3]">
             <ToggleGroup
-              label="Vista"
+              label="View"
               value={mode}
               onChange={v => setMode(v as ViewMode)}
               options={[
-                { key: 'weekly',  text: 'Sett.' },
-                { key: 'monthly', text: 'Mese' },
-                { key: 'yearly',  text: 'Anno' },
+                { key: 'weekly',  text: 'Week' },
+                { key: 'monthly', text: 'Month' },
+                { key: 'yearly',  text: 'Year' },
               ]}
             />
           </div>
           <div className="flex-[2]">
             <ToggleGroup
-              label="Formato"
+              label="Format"
               value={format}
               onChange={v => setFormat(v as ExportFormat)}
               options={[
@@ -202,12 +202,12 @@ export default function Export() {
         <div className="flex gap-3">
           <div className="flex-1">
             <ToggleGroup
-              label="Stile"
+              label="Style"
               value={style}
               onChange={v => setStyle(v as ExportStyle)}
               options={[
-                { key: 'art',     text: 'Arte' },
-                { key: 'labeled', text: 'Testi' },
+                { key: 'art',     text: 'Art' },
+                { key: 'labeled', text: 'Labels' },
               ]}
             />
           </div>
@@ -229,20 +229,20 @@ export default function Export() {
         <div className="flex gap-3">
           <div className="flex-1">
             <ToggleGroup
-              label="Celle"
+              label="Cells"
               value={cellShape}
               onChange={v => setCellShape(v as ExportCellShape)}
               options={[
-                { key: 'rounded', text: 'Arrot.' },
-                { key: 'square',  text: 'Quadr.' },
-                { key: 'circle',  text: 'Cerch.' },
+                { key: 'rounded', text: 'Round.' },
+                { key: 'square',  text: 'Sq.' },
+                { key: 'circle',  text: 'Circ.' },
               ]}
               small
             />
           </div>
           <div className="flex-1">
             <ToggleGroup
-              label="Bagliore"
+              label="Glow"
               value={cellGlow}
               onChange={v => setCellGlow(v as ExportCellGlow)}
               options={[
@@ -255,14 +255,14 @@ export default function Export() {
           </div>
         </div>
 
-        {/* Sfondo */}
+        {/* Background */}
         <div className="space-y-1.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: 'var(--color-muted)' }}>
-            Sfondo
+            Background
           </p>
           <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
             {(['warm', 'white', 'dark', 'mood'] as ExportBg[]).map(k => {
-              const labels: Record<ExportBg, string> = { warm: 'Caldo', white: 'Bianco', dark: 'Scuro', mood: 'Mood' }
+              const labels: Record<ExportBg, string> = { warm: 'Warm', white: 'White', dark: 'Dark', mood: 'Mood' }
               const active = bg === k
               return (
                 <button
@@ -290,7 +290,7 @@ export default function Export() {
           onClick={() => setShowUsername(v => !v)}
         >
           <p className="text-[12px] font-semibold" style={{ color: 'var(--color-foreground)' }}>
-            Mostra @{profile?.username ?? 'username'}
+            Show @{profile?.username ?? 'username'}
           </p>
           <div style={{
             width: 40, height: 24, borderRadius: 99, position: 'relative', flexShrink: 0,
@@ -350,7 +350,7 @@ export default function Export() {
             <ellipse cx="7" cy="7" rx="6" ry="4.5" stroke="currentColor" strokeWidth="1.5"/>
             <circle cx="7" cy="7" r="1.8" fill="currentColor"/>
           </svg>
-          Anteprima a schermo intero
+          Full-screen preview
         </button>
       </div>
 
@@ -431,7 +431,7 @@ export default function Export() {
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <path d="M11 1l4 4-4 4M15 5H5a4 4 0 000 8h1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              {shared ? 'Condiviso!' : 'Condividi'}
+              {shared ? 'Shared!' : 'Share'}
             </button>
             <button
               onClick={handleDownload}
@@ -464,7 +464,7 @@ export default function Export() {
             <path d="M11 1l4 4-4 4M15 5H5a4 4 0 000 8h1"
               stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {shared ? 'Condiviso!' : exporting ? '···' : 'Condividi'}
+          {shared ? 'Shared!' : exporting ? '···' : 'Share'}
         </button>
 
         <button
@@ -481,7 +481,7 @@ export default function Export() {
             <path d="M8 1v9M5 8l3 3 3-3M1 13h14"
               stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          {exporting ? '···' : 'Scarica PNG'}
+          {exporting ? '···' : 'Download PNG'}
         </button>
       </div>
 
