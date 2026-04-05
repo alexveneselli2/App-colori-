@@ -4,12 +4,11 @@ const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL     as string | undefi
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 export function isSupabaseConfigured(): boolean {
-  return !!(
-    supabaseUrl &&
-    supabaseUrl !== 'https://your-project-id.supabase.co' &&
-    supabaseAnonKey &&
-    supabaseAnonKey !== 'your-anon-public-key-here'
-  )
+  if (!supabaseUrl || supabaseUrl === 'https://your-project-id.supabase.co') return false
+  if (!supabaseAnonKey || supabaseAnonKey === 'your-anon-public-key-here') return false
+  // Accept both old JWT format (eyJ...) and new publishable key format (sb_publishable_...)
+  const validKey = supabaseAnonKey.startsWith('eyJ') || supabaseAnonKey.startsWith('sb_publishable_')
+  return validKey
 }
 
 if (!isSupabaseConfigured()) {
