@@ -1,21 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL     as string | undefined
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+// The anon key is safe to embed — it's a public client key with RLS protection.
+// Environment variables override these defaults (e.g. for local dev with .env.local).
+const SUPABASE_URL     = 'https://hyjpdxojeildthahbxbi.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5anBkeG9qZWlsZHRoYWhieGJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMjc1NTUsImV4cCI6MjA5MDkwMzU1NX0.4IYCsIr9Amm-sP5ErPCy5uSwoko7hb1o9BSv02Hcv-4'
+
+const supabaseUrl     = (import.meta.env.VITE_SUPABASE_URL     as string) || SUPABASE_URL
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || SUPABASE_ANON_KEY
 
 export function isSupabaseConfigured(): boolean {
-  if (!supabaseUrl || supabaseUrl === 'https://your-project-id.supabase.co') return false
-  if (!supabaseAnonKey || supabaseAnonKey === 'your-anon-public-key-here') return false
-  // Accept both old JWT format (eyJ...) and new publishable key format (sb_publishable_...)
-  const validKey = supabaseAnonKey.startsWith('eyJ') || supabaseAnonKey.startsWith('sb_publishable_')
-  return validKey
+  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://placeholder.supabase.co')
 }
 
-if (!isSupabaseConfigured()) {
-  console.warn('[Iride] Supabase non configurato. Usa la modalità demo oppure aggiungi le credenziali in .env.local')
-}
-
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
