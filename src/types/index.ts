@@ -15,6 +15,7 @@ export interface MoodEntry {
   color_hex: string
   mood_label: string | null
   note: string | null
+  tags: string[] | null
   source: 'palette' | 'custom'
   latitude: number | null
   longitude: number | null

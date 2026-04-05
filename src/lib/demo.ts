@@ -81,6 +81,7 @@ export interface DemoEntry {
   color_hex: string
   mood_label: string | null
   note: string | null
+  tags: string[] | null
   source: 'palette' | 'custom'
   latitude: number | null
   longitude: number | null
@@ -106,10 +107,27 @@ export function saveDemoEntry(entry: Omit<DemoEntry, 'id' | 'created_at'>): Demo
 
   const newEntry: DemoEntry = {
     ...entry,
+    tags:       entry.tags ?? null,
     id:         `demo-${Date.now()}`,
     created_at: new Date().toISOString(),
   }
   const all = getDemoEntries()
+  all.unshift(newEntry)
+  localStorage.setItem(DEMO_ENTRIES, JSON.stringify(all))
+  return newEntry
+}
+
+/** Upsert today's demo entry — replaces an existing one if present (used by grace period edit). */
+export function upsertDemoEntry(entry: Omit<DemoEntry, 'id' | 'created_at'>): DemoEntry {
+  const today = toISOLocal(new Date())
+  const all   = getDemoEntries().filter(e => e.date !== today)
+
+  const newEntry: DemoEntry = {
+    ...entry,
+    tags:       entry.tags ?? null,
+    id:         `demo-${Date.now()}`,
+    created_at: new Date().toISOString(),
+  }
   all.unshift(newEntry)
   localStorage.setItem(DEMO_ENTRIES, JSON.stringify(all))
   return newEntry
