@@ -117,9 +117,9 @@ export default function Today() {
     switchTab('palette') // return to palette view to show selected
   }
 
-  const handleUseCustom = () => {
+  const handleUseCustom = (label: string) => {
     if (/^#[0-9A-Fa-f]{6}$/.test(customHex)) {
-      setSelected({ hex: customHex, label: null, source: 'custom' })
+      setSelected({ hex: customHex, label: label.trim() || null, source: 'custom' })
       switchTab('palette')
     }
   }
@@ -342,56 +342,11 @@ export default function Today() {
 
           {/* CUSTOM COLOR TAB */}
           {tab === 'custom' && (
-            <div className="space-y-4">
-              <div
-                className="rounded-3xl overflow-hidden"
-                style={{
-                  background: `linear-gradient(135deg, ${customHex}20, ${customHex}08)`,
-                  border: `2px solid ${customHex}40`,
-                }}
-              >
-                {/* Big color preview */}
-                <div
-                  style={{ height: 120, backgroundColor: customHex, display: 'flex', alignItems: 'flex-end', padding: '0 20px 14px' }}
-                >
-                  <p style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace',
-                    color: needsLightText(customHex) ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)' }}>
-                    {customHex.toUpperCase()}
-                  </p>
-                </div>
-
-                <div className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={customHex}
-                      onChange={e => setCustomHex(e.target.value)}
-                      style={{ width: 52, height: 52, borderRadius: 14, border: 'none', cursor: 'pointer', flexShrink: 0 }}
-                    />
-                    <input
-                      type="text"
-                      value={customHex}
-                      onChange={e => {
-                        const v = e.target.value
-                        if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setCustomHex(v)
-                      }}
-                      className="flex-1 px-4 py-3 rounded-xl text-[13px] font-mono focus:outline-none"
-                      style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}
-                      placeholder="#000000"
-                      maxLength={7}
-                    />
-                  </div>
-                  <button
-                    onClick={handleUseCustom}
-                    className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97]"
-                    style={{ background: customHex, color: needsLightText(customHex) ? '#fff' : '#1C1917',
-                      boxShadow: `0 6px 20px ${customHex}50` }}
-                  >
-                    Usa questo colore →
-                  </button>
-                </div>
-              </div>
-            </div>
+            <CustomColorTab
+              customHex={customHex}
+              setCustomHex={setCustomHex}
+              onUse={handleUseCustom}
+            />
           )}
 
           {/* MIX TAB */}
@@ -488,6 +443,157 @@ export default function Today() {
       )}
 
       {showProfile && <ProfileSheet profile={profile} onClose={() => setShowProfile(false)} onSignOut={signOut} />}
+    </div>
+  )
+}
+
+// ─── Italian emotion lexicon for validation ───────────────────────────────────
+const EMOTION_WORDS = [
+  'gioia','felice','felicità','gioioso','contento','contentezza','allegro','allegria',
+  'euforia','euforico','eccitato','eccitazione','esaltato','esaltazione',
+  'estasi','estatico','estasiat',
+  'passione','appassionato','ardore',
+  'tenerezza','tenero','dolcezza','dolce','affetto',
+  'nostalgia','nostalgico','malinconico','malinconia',
+  'meraviglia','meraviglioso','stupore','stuporoso','ammirazione',
+  'anticipazione','attesa','speranza','speranzoso','ottimismo','ottimista',
+  'sorpresa','sorpreso','stupito','stupore',
+  'gratitudine','grato','riconoscente',
+  'fiducia','fiducioso','sicuro','sicurezza','calmo','calma','serenità','sereno',
+  'tranquillo','tranquillità','pace','pacifico','rilassato','rilassatezza',
+  'solitudine','solo','isolato','isolamento',
+  'tristezza','triste','abbattuto','abbattimento','depresso','depressione',
+  'rabbia','arrabbiato','furioso','furibondo','ira','collera','frustrazione','frustrato',
+  'paura','spaventato','ansioso','ansia','terrore','terrorizzato','preoccupato',
+  'disgusto','disgustato','nausea','ribrezzo','repulsione',
+  'stanco','stanchezza','esausto','esaurimento','spossato',
+  'confuso','confusione','disorientato','incerto','incertezza',
+  'deluso','delusione','amarezza','amaro',
+  'imbarazzo','imbarazzato','vergogna',
+  'invidia','geloso','gelosia',
+  'orgoglio','orgoglioso','fiero',
+  'amore','innamorato','affettuoso',
+  'bene','male','così così','neutro','normale','ok','okay',
+]
+
+function validateEmotion(text: string): { valid: boolean; suggestion: string | null } {
+  if (!text.trim()) return { valid: false, suggestion: null }
+  const lower = text.toLowerCase().trim()
+  const found = EMOTION_WORDS.some(w => lower.includes(w) || w.includes(lower))
+  if (found) return { valid: true, suggestion: null }
+
+  // Try to suggest a close palette match
+  const suggestion = MOOD_PALETTE.find(m => {
+    const ml = m.label.toLowerCase()
+    return lower.split(' ').some(w => ml.includes(w) || w.includes(ml.slice(0,4)))
+  })?.label ?? null
+
+  return { valid: false, suggestion }
+}
+
+// ─── Custom Color Tab ─────────────────────────────────────────────────────────
+function CustomColorTab({ customHex, setCustomHex, onUse }: {
+  customHex: string
+  setCustomHex: (v: string) => void
+  onUse: (label: string) => void
+}) {
+  const [sentiment, setSentiment] = useState('')
+  const [validationMsg, setValidationMsg] = useState<string | null>(null)
+  const [validationOk, setValidationOk] = useState(false)
+  const light = needsLightText(customHex)
+
+  const handleValidate = () => {
+    if (!sentiment.trim()) {
+      setValidationMsg('Inserisci un sentimento per questo colore.')
+      setValidationOk(false)
+      return
+    }
+    const { valid, suggestion } = validateEmotion(sentiment)
+    if (valid) {
+      setValidationOk(true)
+      setValidationMsg(null)
+    } else {
+      setValidationOk(false)
+      setValidationMsg(suggestion
+        ? `Non sembra un sentimento riconosciuto. Intendevi "${suggestion}"?`
+        : 'Descrivi come ti senti — es. "felice", "nostalgico", "in pace".')
+    }
+  }
+
+  const handleUse = () => {
+    if (!sentiment.trim()) {
+      setValidationMsg('Inserisci come ti senti con questo colore.')
+      return
+    }
+    handleValidate()
+    if (validateEmotion(sentiment).valid || sentiment.trim().length >= 3) {
+      onUse(sentiment.trim())
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-3xl overflow-hidden"
+        style={{ border: `2px solid ${customHex}40`, background: `linear-gradient(135deg, ${customHex}12, ${customHex}05)` }}>
+
+        {/* Color preview */}
+        <div style={{ height: 110, backgroundColor: customHex, display: 'flex', alignItems: 'flex-end', padding: '0 20px 14px' }}>
+          <p style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace',
+            color: light ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)' }}>
+            {customHex.toUpperCase()}
+          </p>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Hex picker row */}
+          <div className="flex items-center gap-3">
+            <input type="color" value={customHex} onChange={e => setCustomHex(e.target.value)}
+              style={{ width: 48, height: 48, borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0 }} />
+            <input type="text" value={customHex}
+              onChange={e => { const v = e.target.value; if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setCustomHex(v) }}
+              className="flex-1 px-4 py-3 rounded-xl text-[13px] font-mono focus:outline-none"
+              style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}
+              placeholder="#000000" maxLength={7} />
+          </div>
+
+          {/* Sentiment field */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: 'var(--color-muted)' }}>
+              Come ti fa sentire questo colore? *
+            </p>
+            <input
+              type="text"
+              value={sentiment}
+              onChange={e => { setSentiment(e.target.value); setValidationMsg(null); setValidationOk(false) }}
+              onBlur={handleValidate}
+              placeholder="es. malinconico, in pace, energico…"
+              maxLength={40}
+              className="w-full px-4 py-3 rounded-xl text-[13px] focus:outline-none transition-all"
+              style={{
+                background: 'var(--color-surface)',
+                border: `1.5px solid ${validationOk ? '#52B788' : validationMsg ? '#FF0A54' : 'var(--color-subtle)'}`,
+                color: 'var(--color-foreground)',
+              }}
+            />
+            {validationMsg && (
+              <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: '#FF0A54' }}>
+                {validationMsg}
+              </p>
+            )}
+            {validationOk && (
+              <p className="text-[11px] mt-1.5" style={{ color: '#52B788' }}>
+                ✓ Sentimento riconosciuto
+              </p>
+            )}
+          </div>
+
+          <button onClick={handleUse}
+            className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97]"
+            style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
+            Usa questo colore →
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
