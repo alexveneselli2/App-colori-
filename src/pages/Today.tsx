@@ -49,6 +49,7 @@ export default function Today() {
   const [blendB, setBlendB]         = useState<MoodColor | null>(null)
   const [blendRatio, setBlendRatio] = useState(50)
   const [confirming, setConfirming] = useState(false)
+  const [note, setNote]             = useState('')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [showProfile, setShowProfile] = useState(false)
@@ -76,7 +77,33 @@ export default function Today() {
   const handleConfirm = async () => {
     if (!selected || !profile) return
     setSaving(true)
-    const { error: err } = await saveTodayEntry(profile.id, selected.hex, selected.label, selected.source)
+
+    // Capture GPS if user consented
+    let latitude: number | null = null
+    let longitude: number | null = null
+    let location_label: string | null = null
+    if (profile.location_consent && navigator.geolocation) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
+        )
+        latitude  = pos.coords.latitude
+        longitude = pos.coords.longitude
+        // Reverse geocode city name (best effort)
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=it`
+          )
+          const geo = await res.json()
+          location_label = geo.address?.city ?? geo.address?.town ?? geo.address?.village ?? null
+        } catch { /* ignore */ }
+      } catch { /* permission denied or timeout */ }
+    }
+
+    const { error: err } = await saveTodayEntry(
+      profile.id, selected.hex, selected.label, selected.source,
+      { note: note.trim() || null, latitude, longitude, location_label }
+    )
     if (err) setError(err)
     setConfirming(false)
     setSaving(false)
@@ -166,11 +193,25 @@ export default function Today() {
             </p>
           </div>
 
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <p className="text-[16px] font-bold tracking-[-0.02em]" style={{ color: 'var(--color-foreground)' }}>
               Il tuo colore di oggi è custodito.
             </p>
-            <p className="text-[13px] mt-1.5" style={{ color: 'var(--color-muted)' }}>
+            {todayEntry.note && (
+              <p className="text-[13px] italic leading-relaxed px-4" style={{ color: 'var(--color-muted)' }}>
+                "{todayEntry.note}"
+              </p>
+            )}
+            {todayEntry.location_label && (
+              <p className="text-[11px] flex items-center justify-center gap-1" style={{ color: 'var(--color-muted)' }}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M5 2.5C5 2.5 8 5.5 8 7c0 1-1.3 1.5-3 1.5S2 8 2 7c0-1.5 3-4.5 3-4.5z" stroke="currentColor" strokeWidth="1.2"/>
+                </svg>
+                {todayEntry.location_label}
+              </p>
+            )}
+            <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
               Torna domani per il prossimo.
             </p>
           </div>
@@ -439,6 +480,8 @@ export default function Today() {
         <ConfirmSheet
           selected={selected}
           saving={saving}
+          note={note}
+          onNoteChange={setNote}
           onConfirm={handleConfirm}
           onCancel={() => setConfirming(false)}
         />
@@ -488,10 +531,21 @@ function MixPicker({ label, selected, onSelect }: { label: string; selected: Moo
 }
 
 // ─── Confirm sheet ────────────────────────────────────────────────────────────
-function ConfirmSheet({ selected, saving, onConfirm, onCancel }: {
-  selected: Selection; saving: boolean; onConfirm: () => void; onCancel: () => void
+function ConfirmSheet({ selected, saving, note, onNoteChange, onConfirm, onCancel }: {
+  selected: Selection; saving: boolean
+  note: string; onNoteChange: (v: string) => void
+  onConfirm: () => void; onCancel: () => void
 }) {
   const light = needsLightText(selected.hex)
+  const colorBg = selected.label?.includes('+')
+    ? (() => {
+        const [a, b] = (selected.label ?? '').split(' + ')
+        const mA = MOOD_PALETTE.find(m => m.label === a)
+        const mB = MOOD_PALETTE.find(m => m.label === b)
+        return mA && mB ? `linear-gradient(135deg, ${mA.hex}, ${mB.hex})` : selected.hex
+      })()
+    : selected.hex
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
@@ -503,31 +557,49 @@ function ConfirmSheet({ selected, saving, onConfirm, onCancel }: {
         style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)' }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Color hero */}
         <div style={{
-          height: 144, backgroundColor: selected.hex,
-          background: selected.label?.includes('+')
-            ? (() => {
-                const [a, b] = (selected.label ?? '').split(' + ')
-                const mA = MOOD_PALETTE.find(m => m.label === a)
-                const mB = MOOD_PALETTE.find(m => m.label === b)
-                return mA && mB ? `linear-gradient(135deg, ${mA.hex}, ${mB.hex})` : selected.hex
-              })()
-            : selected.hex,
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '0 28px 20px',
+          height: 128, background: colorBg,
+          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '0 24px 18px',
         }}>
-          <p style={{ fontSize: 34, fontWeight: 900, letterSpacing: '-0.05em', lineHeight: 1.05,
+          <p style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.05em', lineHeight: 1.05,
             color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)',
             fontFamily: 'Inter, system-ui, sans-serif' }}>
             {selected.label ?? 'Colore personalizzato'}
           </p>
         </div>
-        <div className="px-7 py-6 space-y-5">
-          <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
-            Stai per registrare il colore di oggi.<br />
-            <strong style={{ color: 'var(--color-foreground)', fontWeight: 700 }}>
-              Questa scelta è definitiva
-            </strong> e non può essere modificata.
+
+        <div className="px-6 pt-5 pb-6 space-y-4">
+          {/* Note textarea */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+              Come mai questo colore? (facoltativo)
+            </p>
+            <textarea
+              value={note}
+              onChange={e => onNoteChange(e.target.value)}
+              placeholder="Scrivi una frase sul tuo stato d'animo…"
+              maxLength={280}
+              rows={2}
+              className="w-full px-4 py-3 rounded-2xl text-[13px] focus:outline-none resize-none transition-all"
+              style={{
+                background: 'var(--color-surface)',
+                border: `1.5px solid ${note ? selected.hex + '60' : 'var(--color-subtle)'}`,
+                color: 'var(--color-foreground)',
+                lineHeight: 1.5,
+              }}
+            />
+            {note && (
+              <p className="text-[10px] text-right mt-1" style={{ color: 'var(--color-muted)' }}>
+                {note.length}/280
+              </p>
+            )}
+          </div>
+
+          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
+            Questa scelta è <strong style={{ color: 'var(--color-foreground)' }}>definitiva</strong> e non può essere modificata.
           </p>
+
           <div className="flex gap-3">
             <button onClick={onCancel}
               className="flex-1 py-3.5 rounded-2xl text-[14px] font-semibold active:scale-[0.98] transition-all"
@@ -535,9 +607,9 @@ function ConfirmSheet({ selected, saving, onConfirm, onCancel }: {
               Annulla
             </button>
             <button onClick={onConfirm} disabled={saving}
-              className="flex-1 py-3.5 rounded-2xl text-[14px] font-extrabold active:scale-[0.98] transition-all disabled:opacity-60"
+              className="flex-[2] py-3.5 rounded-2xl text-[14px] font-extrabold active:scale-[0.98] transition-all disabled:opacity-60"
               style={{ background: selected.hex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${selected.hex}55` }}>
-              {saving ? '···' : 'Conferma'}
+              {saving ? '···' : 'Salva per sempre →'}
             </button>
           </div>
         </div>

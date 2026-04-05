@@ -45,14 +45,18 @@ export function enterDemo(): void {
       d.setDate(d.getDate() - i)
       const idx = Math.floor(Math.random() * palette.length)
       entries.push({
-        id:         `demo-${i}`,
-        user_id:    DEMO_USER_ID,
-        date:       toISOLocal(d),
-        color_hex:  palette[idx],
-        mood_label: labels[idx],
-        source:     'palette' as const,
-        created_at: d.toISOString(),
-        locked:     true,
+        id:             `demo-${i}`,
+        user_id:        DEMO_USER_ID,
+        date:           toISOLocal(d),
+        color_hex:      palette[idx],
+        mood_label:     labels[idx],
+        note:           null,
+        source:         'palette' as const,
+        latitude:       null,
+        longitude:      null,
+        location_label: null,
+        created_at:     d.toISOString(),
+        locked:         true,
       })
     }
     localStorage.setItem(DEMO_ENTRIES, JSON.stringify(entries))
@@ -76,7 +80,11 @@ export interface DemoEntry {
   date: string
   color_hex: string
   mood_label: string | null
+  note: string | null
   source: 'palette' | 'custom'
+  latitude: number | null
+  longitude: number | null
+  location_label: string | null
   created_at: string
   locked: boolean
 }

@@ -10,6 +10,13 @@ import {
 } from '../lib/demo'
 import type { MoodEntry } from '../types'
 
+interface SaveOptions {
+  note?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  location_label?: string | null
+}
+
 interface MoodState {
   entries: MoodEntry[]
   todayEntry: MoodEntry | null
@@ -20,7 +27,8 @@ interface MoodState {
     userId: string,
     colorHex: string,
     moodLabel: string | null,
-    source: 'palette' | 'custom'
+    source: 'palette' | 'custom',
+    opts?: SaveOptions
   ) => Promise<{ error: string | null }>
 }
 
@@ -57,12 +65,7 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     set({ todayEntry: (data as MoodEntry | null) ?? null })
   },
 
-  saveTodayEntry: async (
-    userId: string,
-    colorHex: string,
-    moodLabel: string | null,
-    source: 'palette' | 'custom'
-  ) => {
+  saveTodayEntry: async (userId, colorHex, moodLabel, source, opts = {}) => {
     if (get().todayEntry) {
       return { error: 'Hai già registrato il tuo colore per oggi.' }
     }
@@ -73,8 +76,12 @@ export const useMoodStore = create<MoodState>((set, get) => ({
         date:       todayISO(),
         color_hex:  colorHex,
         mood_label: moodLabel,
+        note:       opts.note ?? null,
         source,
         locked:     true,
+        latitude:   opts.latitude ?? null,
+        longitude:  opts.longitude ?? null,
+        location_label: opts.location_label ?? null,
       })
       if (!entry) return { error: 'Hai già registrato il tuo colore per oggi.' }
       set((s: MoodState) => ({ todayEntry: entry as MoodEntry, entries: [entry as MoodEntry, ...s.entries] }))
@@ -84,12 +91,16 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     const { data, error } = await supabase
       .from('mood_entries')
       .insert({
-        user_id:    userId,
-        date:       todayISO(),
-        color_hex:  colorHex,
-        mood_label: moodLabel,
+        user_id:        userId,
+        date:           todayISO(),
+        color_hex:      colorHex,
+        mood_label:     moodLabel,
+        note:           opts.note ?? null,
         source,
-        locked:     true,
+        locked:         true,
+        latitude:       opts.latitude ?? null,
+        longitude:      opts.longitude ?? null,
+        location_label: opts.location_label ?? null,
       })
       .select()
       .single()
