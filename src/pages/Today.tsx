@@ -143,59 +143,55 @@ export default function Today() {
       <div className="page-top flex flex-col px-6" style={{ minHeight: '60dvh' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <p className="text-[11px] font-semibold tracking-[0.13em] uppercase" style={{ color: 'var(--color-muted)' }}>
-            {formatDate(today)}
-          </p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--color-muted)' }}>
+              {formatDate(today)}
+            </p>
+          </div>
           <button onClick={() => setShowProfile(true)} className="profile-btn" style={profileBtnStyle}>
             {initial}
           </button>
         </div>
 
         {/* Color hero */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-8 animate-fade-up">
-          {/* Orb strip decoration */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            {ORB_COLORS.map((hex, i) => (
-              <div key={hex} style={{
-                width: 12, height: 12, borderRadius: '50%', backgroundColor: hex,
-                opacity: hex === todayEntry.color_hex ? 1 : 0.35,
-                transform: `scale(${hex === todayEntry.color_hex ? 1.6 : 1})`,
-                boxShadow: hex === todayEntry.color_hex ? `0 0 12px ${hex}90` : undefined,
-                transition: 'all 0.3s ease',
-              }} />
-            ))}
-          </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-fade-up">
 
-          {/* Big color swatch */}
+          {/* Big color swatch — tall rectangle, editorial */}
           <div
             className="animate-pop-in"
             style={{
-              width: '70%', maxWidth: 220,
-              aspectRatio: '1/1',
-              borderRadius: 36,
+              width: '82%', maxWidth: 260,
+              aspectRatio: '4/5',
+              borderRadius: 32,
               backgroundColor: todayEntry.color_hex,
-              boxShadow: `0 0 0 1px ${todayEntry.color_hex}20, 0 20px 60px ${todayEntry.color_hex}60, 0 4px 20px ${todayEntry.color_hex}40`,
+              boxShadow: `0 0 0 1px ${todayEntry.color_hex}25, 0 24px 72px ${todayEntry.color_hex}65, 0 6px 24px ${todayEntry.color_hex}40`,
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 8,
+              justifyContent: 'space-between',
+              padding: '22px 22px 18px',
             }}
           >
+            {/* Top: hex */}
+            <p style={{ fontSize: 10, fontFamily: 'monospace',
+              color: light ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.25)',
+              letterSpacing: '0.06em' }}>
+              {todayEntry.color_hex.toUpperCase()}
+            </p>
+            {/* Bottom: mood label */}
             {todayEntry.mood_label && (
-              <p style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1,
-                color: light ? 'rgba(255,255,255,0.93)' : 'rgba(0,0,0,0.80)',
-                fontFamily: 'Inter, system-ui, sans-serif' }}>
+              <p style={{
+                fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.05,
+                color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)',
+                fontFamily: 'Inter, system-ui, sans-serif',
+              }}>
                 {todayEntry.mood_label}
               </p>
             )}
-            <p style={{ fontSize: 10, fontFamily: 'monospace',
-              color: light ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.28)' }}>
-              {todayEntry.color_hex.toUpperCase()}
-            </p>
           </div>
 
-          <div className="text-center space-y-2">
-            <p className="text-[16px] font-bold tracking-[-0.02em]" style={{ color: 'var(--color-foreground)' }}>
-              Il tuo colore di oggi è custodito.
+          <div className="text-center space-y-1.5 w-full max-w-xs">
+            <p className="text-[17px] font-extrabold tracking-[-0.03em]" style={{ color: 'var(--color-foreground)' }}>
+              Il tuo colore è custodito.
             </p>
             {todayEntry.note && (
               <p className="text-[13px] italic leading-relaxed px-4" style={{ color: 'var(--color-muted)' }}>
@@ -238,13 +234,14 @@ export default function Today() {
       <div style={{ position: 'relative', zIndex: 1 }} className="flex flex-col px-5">
 
         {/* ── Header ── */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-5">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.13em] uppercase mb-1.5" style={{ color: 'var(--color-muted)' }}>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase mb-2" style={{ color: 'var(--color-muted)' }}>
               {formatDate(today)}
             </p>
-            <h1 className="text-[32px] font-extrabold leading-tight tracking-[-0.04em]" style={{ color: 'var(--color-foreground)' }}>
-              Come ti senti<br />oggi?
+            <h1 className="text-[36px] font-extrabold leading-[1.0] tracking-[-0.05em]" style={{ color: 'var(--color-foreground)' }}>
+              Come ti<br />
+              <span style={{ color: selected?.hex ?? 'inherit', transition: 'color 0.4s ease' }}>senti oggi?</span>
             </h1>
           </div>
           <button onClick={() => setShowProfile(true)} style={profileBtnStyle}>
@@ -253,24 +250,25 @@ export default function Today() {
         </div>
 
         {/* ── Three-tab switcher ── */}
-        <div
-          className="flex p-1 gap-1 rounded-2xl mb-4"
-          style={{ background: 'var(--color-subtle)' }}
-        >
+        <div className="flex gap-2 mb-5">
           {([
-            { id: 'palette', label: 'Palette' },
-            { id: 'custom',  label: 'Colore' },
-            { id: 'mix',     label: '✦ Mix' },
-          ] as { id: Tab; label: string }[]).map(t => (
+            { id: 'palette', label: 'Palette', icon: '⬛' },
+            { id: 'custom',  label: 'Colore',  icon: '🎨' },
+            { id: 'mix',     label: 'Mix',     icon: '✦' },
+          ] as { id: Tab; label: string; icon: string }[]).map(t => (
             <button
               key={t.id}
               onClick={() => switchTab(t.id)}
-              className="flex-1 py-2 rounded-xl text-[12px] font-bold transition-all active:scale-[0.96]"
+              className="flex-1 py-2.5 rounded-2xl text-[12px] font-bold transition-all active:scale-[0.95]"
               style={{
-                background: tab === t.id ? 'var(--color-surface-raised)' : 'transparent',
-                color: tab === t.id ? 'var(--color-foreground)' : 'var(--color-muted)',
-                boxShadow: tab === t.id ? 'var(--shadow-sm)' : undefined,
-                letterSpacing: t.id === 'mix' ? '-0.01em' : undefined,
+                background: tab === t.id
+                  ? selected?.hex ? `${selected.hex}20` : 'var(--color-surface-raised)'
+                  : 'transparent',
+                color: tab === t.id ? (selected?.hex ?? 'var(--color-foreground)') : 'var(--color-muted)',
+                border: tab === t.id
+                  ? `1.5px solid ${selected?.hex ? selected.hex + '40' : 'var(--color-subtle)'}`
+                  : '1.5px solid transparent',
+                boxShadow: tab === t.id ? 'var(--shadow-xs)' : undefined,
               }}
             >
               {t.label}
@@ -282,19 +280,26 @@ export default function Today() {
         {selected && (
           <div
             key={selected.hex}
-            className="flex items-center gap-3 mb-4 py-2.5 px-4 rounded-2xl animate-fade-in"
-            style={{ background: `${selected.hex}18`, border: `1.5px solid ${selected.hex}45` }}
+            className="flex items-center gap-3 mb-5 py-3 px-4 rounded-2xl animate-fade-in"
+            style={{
+              background: `${selected.hex}15`,
+              border: `1.5px solid ${selected.hex}40`,
+              boxShadow: `0 4px 16px ${selected.hex}20`,
+            }}
           >
-            <div style={{ width: 26, height: 26, borderRadius: 9, backgroundColor: selected.hex, flexShrink: 0, boxShadow: `0 2px 10px ${selected.hex}55` }} />
+            <div style={{
+              width: 32, height: 32, borderRadius: 11, backgroundColor: selected.hex, flexShrink: 0,
+              boxShadow: `0 4px 14px ${selected.hex}60, 0 0 0 1.5px ${selected.hex}30`,
+            }} />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold" style={{ color: 'var(--color-foreground)' }}>
+              <p className="text-[14px] font-extrabold tracking-tight" style={{ color: 'var(--color-foreground)' }}>
                 {selected.label ?? 'Colore personalizzato'}
               </p>
               <p className="text-[10px] font-mono" style={{ color: 'var(--color-muted)' }}>{selected.hex.toUpperCase()}</p>
             </div>
-            <button onClick={() => setSelected(null)} style={{ color: 'var(--color-muted)', padding: 4 }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            <button onClick={() => setSelected(null)} style={{ color: 'var(--color-muted)', padding: 6 }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
             </button>
           </div>
@@ -305,35 +310,56 @@ export default function Today() {
 
           {/* PALETTE TAB */}
           {tab === 'palette' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
               {MOOD_PALETTE.map((mood, i) => {
-                const row = Math.floor(i / 5)
+                const row = Math.min(Math.floor(i / 4) + 1, 4)
                 const isSelected = selected?.hex === mood.hex
+                const light = needsLightText(mood.hex)
                 return (
                   <button
                     key={mood.hex}
                     onClick={() => handleSelectMood(mood)}
-                    className={`swatch-row-${row + 1}`}
+                    className={`swatch-row-${row}`}
                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
                   >
                     <div style={{
-                      width: '100%', paddingTop: '100%', borderRadius: 18,
+                      width: '100%', paddingTop: '110%', borderRadius: isSelected ? 22 : 18,
                       backgroundColor: mood.hex, position: 'relative',
-                      transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease',
-                      transform: isSelected ? 'scale(1.14)' : 'scale(1)',
+                      transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                      transform: isSelected ? 'scale(1.07)' : 'scale(1)',
                       boxShadow: isSelected
-                        ? `0 0 0 2.5px var(--color-surface), 0 0 0 5px ${mood.hex}, 0 8px 28px ${mood.hex}70`
-                        : `0 3px 10px ${mood.hex}40`,
-                    }} />
-                    <p style={{
-                      fontSize: 8, fontWeight: isSelected ? 800 : 400,
-                      color: isSelected ? 'var(--color-foreground)' : 'var(--color-muted)',
-                      textAlign: 'center', marginTop: 5, lineHeight: 1.2,
-                      fontFamily: 'Inter, system-ui, sans-serif',
-                      transition: 'all 0.15s',
+                        ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 30px ${mood.hex}70`
+                        : `0 4px 14px ${mood.hex}45`,
                     }}>
-                      {mood.label}
-                    </p>
+                      {/* Label inside swatch */}
+                      <div style={{
+                        position: 'absolute', bottom: 8, left: 8, right: 8,
+                        pointerEvents: 'none',
+                      }}>
+                        <p style={{
+                          fontSize: 9.5,
+                          fontWeight: isSelected ? 800 : 600,
+                          color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
+                          lineHeight: 1.1,
+                          fontFamily: 'Inter, system-ui, sans-serif',
+                        }}>
+                          {mood.label}
+                        </p>
+                      </div>
+                      {/* Selected checkmark */}
+                      {isSelected && (
+                        <div style={{
+                          position: 'absolute', top: 8, right: 8,
+                          width: 18, height: 18, borderRadius: '50%',
+                          background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path d="M1 4l3 3 5-6" stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                   </button>
                 )
               })}

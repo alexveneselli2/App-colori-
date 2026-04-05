@@ -9,22 +9,24 @@ import {
   DAY_SHORT,
 } from '../lib/dateUtils'
 import { MOOD_PALETTE } from '../constants/moods'
-import type { ViewMode, ExportStyle, ExportFormat, ExportFont, ExportBg } from '../types'
+import type { ViewMode, ExportStyle, ExportFormat, ExportFont, ExportBg, ExportCellShape, ExportCellGlow } from '../types'
 
 export const CANVAS_W       = 360
 export const CANVAS_H_FEED  = 360
 export const CANVAS_H_STORY = 640
 
 interface Props {
-  entriesMap: Map<string, string>
-  mode:     ViewMode
-  bg:       ExportBg
-  style:    ExportStyle
-  format:   ExportFormat
-  font:     ExportFont
-  username?: string
-  year:     number
-  month:    number
+  entriesMap:  Map<string, string>
+  mode:        ViewMode
+  bg:          ExportBg
+  style:       ExportStyle
+  format:      ExportFormat
+  font:        ExportFont
+  cellShape:   ExportCellShape
+  cellGlow:    ExportCellGlow
+  username?:   string
+  year:        number
+  month:       number
 }
 
 function needsLight(hex: string): boolean {
@@ -62,17 +64,36 @@ function computeBgStyle(bg: ExportBg, entriesMap: Map<string, string>): string {
 
 const FONT_SANS  = 'Inter, system-ui, -apple-system, sans-serif'
 const FONT_SERIF = 'Georgia, "Times New Roman", Times, serif'
+const FONT_MONO  = '"Courier New", Courier, monospace'
+
+function getFontStack(font: ExportFont): string {
+  if (font === 'serif') return FONT_SERIF
+  if (font === 'mono')  return FONT_MONO
+  return FONT_SANS
+}
 
 function getActiveMoods(entriesMap: Map<string, string>) {
   const used = new Set(entriesMap.values())
   return MOOD_PALETTE.filter(m => used.has(m.hex))
 }
 
+function cellRadius(size: number, shape: ExportCellShape): string | number {
+  if (shape === 'square') return 2
+  if (shape === 'circle') return '50%'
+  return Math.max(3, Math.round(size * 0.28))
+}
+
+function cellBoxShadow(hex: string | null, glow: ExportCellGlow): string | undefined {
+  if (!hex || glow === 'none') return undefined
+  if (glow === 'vivid') return `0 0 0 1px ${hex}30, 0 3px 12px ${hex}70`
+  return `0 2px 8px ${hex}45`
+}
+
 const ExportCanvas = forwardRef<HTMLDivElement, Props>(
-  ({ entriesMap, mode, bg, style, format, font, username, year, month }, ref) => {
+  ({ entriesMap, mode, bg, style, format, font, cellShape, cellGlow, username, year, month }, ref) => {
     const { fg, muted, empty, line } = getPalette(bg)
     const bgStyle  = computeBgStyle(bg, entriesMap)
-    const FONT     = font === 'serif' ? FONT_SERIF : FONT_SANS
+    const FONT     = getFontStack(font)
     const canvasH  = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
     const isStory  = format === 'story'
     const labeled  = style === 'labeled'
@@ -115,7 +136,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           <span style={{
             fontSize: isStory ? 18 : 14,
             fontWeight: 800,
-            letterSpacing: font === 'serif' ? '-0.01em' : '-0.04em',
+            letterSpacing: font === 'mono' ? '0.04em' : font === 'serif' ? '-0.01em' : '-0.04em',
             color: fg,
             fontFamily: FONT,
             lineHeight: 1,
@@ -137,7 +158,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
         <p style={{
           fontSize: isStory ? 21 : 16,
           fontWeight: font === 'serif' ? 700 : 800,
-          letterSpacing: font === 'serif' ? '-0.01em' : '-0.03em',
+          letterSpacing: font === 'mono' ? '0.02em' : font === 'serif' ? '-0.01em' : '-0.03em',
           color: fg,
           fontFamily: FONT,
           lineHeight: 1.1,
@@ -190,7 +211,11 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
               }}>
                 {activeMoods.map(mood => (
                   <div key={mood.hex} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: mood.hex }} />
+                    <div style={{
+                      width: 7, height: 7,
+                      borderRadius: cellShape === 'square' ? 1 : cellShape === 'circle' ? '50%' : 2,
+                      backgroundColor: mood.hex,
+                    }} />
                     <span style={{ fontSize: isStory ? 8 : 7, color: muted, fontFamily: FONT, whiteSpace: 'nowrap' }}>
                       {mood.label}
                     </span>
@@ -214,17 +239,21 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       const rowH  = Math.floor((CONTENT_H - gap - 4) / 2)
 
       const Cell = ({ day, w, dayIdx }: { day: Date; w: number; dayIdx: number }) => {
-        const color = getColor(day)
+        const color  = getColor(day)
         const cellBg = color ?? empty
-        const light = color ? needsLight(color) : false
+        const light  = color ? needsLight(color) : false
         const textColor = (a: number) => color
           ? (light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`)
           : muted
+        const cr = cellShape === 'circle'
+          ? Math.min(w, rowH) / 2
+          : cellShape === 'square' ? 4 : 16
         return (
           <div style={{
             width: w, height: rowH,
-            borderRadius: 16,
+            borderRadius: cr,
             backgroundColor: cellBg,
+            boxShadow: cellBoxShadow(color, cellGlow),
             display: 'flex',
             flexDirection: 'column',
             justifyContent: labeled ? 'space-between' : 'center',
@@ -278,6 +307,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       const gap  = 8
       const padH = PAD
       const barH = Math.floor((CONTENT_H - gap * 6 - 8) / 7)
+      const cr   = cellShape === 'circle' ? barH / 2 : cellShape === 'square' ? 4 : 14
 
       return (
         <div style={{
@@ -288,9 +318,9 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           gap,
         }}>
           {days.map((day, i) => {
-            const color = getColor(day)
+            const color  = getColor(day)
             const cellBg = color ?? empty
-            const light = color ? needsLight(color) : false
+            const light  = color ? needsLight(color) : false
             const textColor = (a: number) => color
               ? (light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`)
               : muted
@@ -298,8 +328,9 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
             return (
               <div key={i} style={{
                 height: barH,
-                borderRadius: 14,
+                borderRadius: cr,
                 backgroundColor: cellBg,
+                boxShadow: cellBoxShadow(color, cellGlow),
                 display: 'flex',
                 alignItems: 'center',
                 padding: '0 18px',
@@ -326,11 +357,12 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
 
     // ── MONTHLY FEED: full calendar grid ────────────────────────────────────
     const MonthlyFeed = () => {
-      const cells = getMonthCells(year, month)
-      const gap   = 5
-      const padH  = PAD
+      const cells  = getMonthCells(year, month)
+      const gap    = 5
+      const padH   = PAD
       const cellSz = Math.floor((CANVAS_W - padH * 2 - gap * 6) / 7)
       const labelH = labeled ? 18 : 0
+      const cr     = cellRadius(cellSz, cellShape)
 
       return (
         <div style={{
@@ -356,17 +388,21 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap }}>
-            {cells.map((day, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                <div style={{
-                  width: cellSz, height: cellSz, borderRadius: 5,
-                  backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
-                }} />
-                {labeled && day && (
-                  <span style={{ fontSize: 6, color: muted, fontFamily: FONT }}>{day.getDate()}</span>
-                )}
-              </div>
-            ))}
+            {cells.map((day, i) => {
+              const color = day ? getColor(day) : null
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <div style={{
+                    width: cellSz, height: cellSz, borderRadius: cr,
+                    backgroundColor: day ? (color ?? empty) : 'transparent',
+                    boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                  }} />
+                  {labeled && day && (
+                    <span style={{ fontSize: 6, color: muted, fontFamily: FONT }}>{day.getDate()}</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )
@@ -381,6 +417,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       const labelH = labeled ? 22 : 0
       const rows   = Math.ceil(cells.length / 7)
       const rowH   = Math.floor((CONTENT_H - labelH - gap * (rows + 1)) / rows)
+      const cr     = cellRadius(cellSz, cellShape)
 
       return (
         <div style={{
@@ -392,11 +429,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           gap: gap,
         }}>
           {labeled && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(7, ${cellSz}px)`,
-              gap,
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap }}>
               {DAY_INITIAL.map((d, i) => (
                 <div key={i} style={{ textAlign: 'center', fontSize: 9, color: muted, fontFamily: FONT }}>
                   {d}
@@ -410,28 +443,32 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
             gridAutoRows: rowH,
             gap,
           }}>
-            {cells.map((day, i) => (
-              <div key={i} style={{
-                borderRadius: 7,
-                backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-end',
-                padding: labeled ? '0 0 4px 4px' : undefined,
-              }}>
-                {labeled && day && (
-                  <span style={{
-                    fontSize: 7,
-                    color: getColor(day)
-                      ? (needsLight(getColor(day)!) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.4)')
-                      : muted,
-                    fontFamily: FONT,
-                  }}>
-                    {day.getDate()}
-                  </span>
-                )}
-              </div>
-            ))}
+            {cells.map((day, i) => {
+              const color = day ? getColor(day) : null
+              return (
+                <div key={i} style={{
+                  borderRadius: cr,
+                  backgroundColor: day ? (color ?? empty) : 'transparent',
+                  boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  padding: labeled ? '0 0 4px 4px' : undefined,
+                }}>
+                  {labeled && day && (
+                    <span style={{
+                      fontSize: 7,
+                      color: color
+                        ? (needsLight(color) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.4)')
+                        : muted,
+                      fontFamily: FONT,
+                    }}>
+                      {day.getDate()}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )
@@ -447,6 +484,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       const nameH  = 14
       const cGap   = 1.5
       const cellSz = Math.floor((monthW - 6 * cGap) / 7)
+      const cr     = cellRadius(cellSz, cellShape)
 
       return (
         <div style={{
@@ -469,17 +507,17 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
                 }}>
                   {MONTH_SHORT[m]}
                 </p>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(7, ${cellSz}px)`,
-                  gap: cGap,
-                }}>
-                  {cells.map((day, i) => (
-                    <div key={i} style={{
-                      width: cellSz, height: cellSz, borderRadius: 1.5,
-                      backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
-                    }} />
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap: cGap }}>
+                  {cells.map((day, i) => {
+                    const color = day ? getColor(day) : null
+                    return (
+                      <div key={i} style={{
+                        width: cellSz, height: cellSz, borderRadius: cr,
+                        backgroundColor: day ? (color ?? empty) : 'transparent',
+                        boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                      }} />
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -498,6 +536,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
       const nameH  = 16
       const cGap   = 2
       const cellSz = Math.floor((monthW - 6 * cGap) / 7)
+      const cr     = cellRadius(cellSz, cellShape)
 
       return (
         <div style={{
@@ -520,17 +559,17 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
                 }}>
                   {MONTH_SHORT[m]}
                 </p>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(7, ${cellSz}px)`,
-                  gap: cGap,
-                }}>
-                  {cells.map((day, i) => (
-                    <div key={i} style={{
-                      width: cellSz, height: cellSz, borderRadius: 2,
-                      backgroundColor: day ? (getColor(day) ?? empty) : 'transparent',
-                    }} />
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap: cGap }}>
+                  {cells.map((day, i) => {
+                    const color = day ? getColor(day) : null
+                    return (
+                      <div key={i} style={{
+                        width: cellSz, height: cellSz, borderRadius: cr,
+                        backgroundColor: day ? (color ?? empty) : 'transparent',
+                        boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                      }} />
+                    )
+                  })}
                 </div>
               </div>
             )
