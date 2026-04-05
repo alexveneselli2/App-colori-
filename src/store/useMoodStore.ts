@@ -94,7 +94,7 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     await get().initGrace(userId)
   },
 
-  saveTodayEntry: async (userId, colorHex, moodLabel, source, opts = {}) => {
+  saveTodayEntry: async (userId, colorHex, moodLabel, source, opts: SaveOptions = {}) => {
     if (get().todayEntry) {
       return { error: 'Hai già registrato il tuo colore per oggi.' }
     }
@@ -146,7 +146,7 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     return { error: null }
   },
 
-  beginGrace: async (userId, colorHex, moodLabel, source, opts = {}) => {
+  beginGrace: async (userId, colorHex, moodLabel, source, opts: SaveOptions = {}) => {
     // Already has a committed todayEntry → error
     if (get().todayEntry) {
       return { error: 'Hai già registrato il tuo colore per oggi.' }

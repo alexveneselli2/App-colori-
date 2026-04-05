@@ -270,3 +270,73 @@ Per demo senza Supabase: cliccare "Prova il demo" sulla schermata di login.
 - Statistiche emotive (% per colore, streak)
 - Sfondo dinamico anche in History ed Export (attualmente solo Today + Layout)
 - Dark mode UI completa dell'app (la palette export dark esiste già)
+
+---
+
+## Nuove funzionalità (sessione 2026-04-05)
+
+### Grace Period (periodo di modifica)
+- Durata: **5 minuti** dalla conferma del colore
+- Chiave localStorage: `iride_grace_entry` (struttura `GraceEntry`)
+- Flusso: `beginGrace()` → countdown in UI → `commitGrace()` (auto o manuale)
+- `cancelGrace()` elimina la voce senza salvarla
+- Al riavvio dell'app: `initGrace()` in `fetchTodayEntry` ripristina il grace o fa commit se scaduto
+- In demo mode: usa `upsertDemoEntry()` per sovrascrivere la voce del giorno
+- In Supabase mode: usa `upsert` con `onConflict: 'user_id,date'`
+- **File**: `src/lib/gracePeriod.ts`, `src/store/useMoodStore.ts`
+
+### Tags su MoodEntry
+- Campo `tags: string[] | null` in `MoodEntry` (types/index.ts) e `DemoEntry` (demo.ts)
+- UI in `ConfirmSheet`: chip-style input, max 5 tag, max 20 caratteri ciascuno
+- Aggiungi con Enter o virgola; rimuovi con × sul chip
+- I tag vengono passati a `beginGrace()` → `SaveOptions.tags`
+
+### Confetti alla conferma
+- Libreria: `canvas-confetti ^1.9.3` (+ `@types/canvas-confetti`)
+- Triggered in `handleConfirm` dopo `beginGrace()` con successo
+- Colori: hex selezionato + versione più chiara (mix con bianco 45%) + più scura (mix con nero 35%)
+- Vibrazione tattile: `navigator.vibrate(15)` al tap su ogni swatch della palette
+
+### ArtGenerator (`src/components/ArtGenerator.tsx`)
+Componente canvas con 3 modalità animate:
+
+| Modalità | Tecnica | Animazione |
+|----------|---------|-----------|
+| **Fluido** | Orb radiali in percorso Lissajous | 60fps rAF |
+| **Voronoi** | Tassellazione di Voronoi low-res (1/6) + upscale | seed si spostano ogni 2s |
+| **Skyline** | Colonne con altezza = saturazione HSL, cielo stellato | 60fps rAF con onda sinusoidale |
+
+- Sfondo Fluido/Voronoi: `#F2EDE5` (warm parchment)
+- Sfondo Skyline: gradiente scuro `#0a0820 → #1a1040`
+- Helper locali: `hexToRgb()`, `hexToHsl()`
+- Fallback palette: `BRAND_COLORS` se nessuna entry
+- Cleanup: `cancelAnimationFrame` / `clearInterval` su unmount
+- Mostrato nella vista "colore salvato" e nella vista "grace period" di Today.tsx
+
+### DeepHistory (`src/components/DeepHistory.tsx`)
+Timeline orizzontale a scorrimento:
+- Ogni giorno = striscia verticale da 44px di larghezza
+- Auto-scroll a "oggi" al mount (`scrollIntoView`)
+- "Oggi" evidenziato con ring bianco
+- Frecce ← → per scroll manuale di 220px
+- Etichette data (gg/mm) in basso su ogni striscia
+- Hover: leggera scala verticale
+- Mostra contatore "N giorni registrati"
+
+### Timeline tab in History.tsx
+- Aggiunta 5ª tab `{ key: 'timeline', label: 'Timeline' }` dopo "Diario"
+- Renderizza `<DeepHistory entries={entries} />`
+- `type Mode = ViewMode | 'diary' | 'timeline'`
+
+### Struttura file aggiornata
+```
+src/
+├── lib/
+│   └── gracePeriod.ts         # NUOVO — gestione grace period 5 min
+├── components/
+│   ├── ArtGenerator.tsx       # NUOVO — canvas generativo (Fluido/Voronoi/Skyline)
+│   └── DeepHistory.tsx        # NUOVO — timeline orizzontale scroll
+└── pages/
+    ├── Today.tsx              # AGGIORNATO — grace, confetti, tags, vibrazione
+    └── History.tsx            # AGGIORNATO — tab Timeline aggiunta
+```

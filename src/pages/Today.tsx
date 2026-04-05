@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type CSSProperties } from 'react'
+import confetti from 'canvas-confetti'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { MOOD_PALETTE } from '../constants/moods'
 import { MONTH_FULL } from '../lib/dateUtils'
+import { getGraceTimeLeftMs } from '../lib/gracePeriod'
+import ArtGenerator from '../components/ArtGenerator'
 import type { MoodColor } from '../constants/moods'
 
 const DAY_NAMES = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
@@ -16,6 +19,26 @@ function needsLightText(hex: string): boolean {
   const g = parseInt(hex.slice(3, 5), 16)
   const b = parseInt(hex.slice(5, 7), 16)
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  return {
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16),
+  }
+}
+
+function blendHexRgb(hex: string, r2: number, g2: number, b2: number, t: number): string {
+  const { r, g, b } = hexToRgb(hex)
+  return `#${Math.round(r + (r2 - r) * t).toString(16).padStart(2, '0')}${Math.round(g + (g2 - g) * t).toString(16).padStart(2, '0')}${Math.round(b + (b2 - b) * t).toString(16).padStart(2, '0')}`
+}
+
+function formatGraceTimer(ms: number): string {
+  const totalSecs = Math.max(0, Math.floor(ms / 1000))
+  const mins = Math.floor(totalSecs / 60)
+  const secs = totalSecs % 60
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
 function blendHex(hex1: string, hex2: string, t: number): string {
@@ -38,7 +61,7 @@ const ORB_COLORS = ['#FFD000','#FF6B00','#FF0A54','#C77DFF','#00B4D8','#52B788',
 
 export default function Today() {
   const { profile, signOut } = useAuthStore()
-  const { entries, todayEntry, fetchTodayEntry, saveTodayEntry, fetchEntries } = useMoodStore()
+  const { entries, todayEntry, pendingGrace, fetchTodayEntry, saveTodayEntry, fetchEntries, beginGrace, cancelGrace, commitGrace } = useMoodStore()
 
   const [loaded, setLoaded]         = useState(false)
   const [tab, setTab]               = useState<Tab>('palette')
@@ -50,9 +73,12 @@ export default function Today() {
   const [blendRatio, setBlendRatio] = useState(50)
   const [confirming, setConfirming] = useState(false)
   const [note, setNote]             = useState('')
+  const [tags, setTags]             = useState<string[]>([])
+  const [tagInput, setTagInput]     = useState('')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [showProfile, setShowProfile] = useState(false)
+  const [graceTimeLeft, setGraceTimeLeft] = useState<number>(0)
 
   const today = new Date()
 
@@ -65,12 +91,22 @@ export default function Today() {
     }
   }, [profile])
 
+  // Grace countdown timer
+  useEffect(() => {
+    if (!pendingGrace) return
+    const tick = () => setGraceTimeLeft(getGraceTimeLeftMs(pendingGrace))
+    tick()
+    const id = setInterval(tick, 500)
+    return () => clearInterval(id)
+  }, [pendingGrace])
+
   const switchTab = (t: Tab) => {
     setTab(t)
     setTabKey(k => k + 1)
   }
 
   const handleSelectMood = (mood: MoodColor) => {
+    if (navigator.vibrate) navigator.vibrate(15)
     setSelected({ hex: mood.hex, label: mood.label, source: 'palette' })
   }
 
@@ -100,11 +136,25 @@ export default function Today() {
       } catch { /* permission denied or timeout */ }
     }
 
-    const { error: err } = await saveTodayEntry(
+    const { error: err } = await beginGrace(
       profile.id, selected.hex, selected.label, selected.source,
-      { note: note.trim() || null, latitude, longitude, location_label }
+      { note: note.trim() || null, tags, latitude, longitude, location_label }
     )
-    if (err) setError(err)
+    if (err) {
+      setError(err)
+    } else {
+      // Confetti explosion in the selected color
+      const { r, g, b } = hexToRgb(selected.hex)
+      const lighterVersion = blendHexRgb(selected.hex, 255, 255, 255, 0.45)
+      const darkerVersion  = blendHexRgb(selected.hex, 0, 0, 0, 0.35)
+      confetti({
+        particleCount: 120,
+        spread: 100,
+        origin: { y: 0.65 },
+        colors: [selected.hex, lighterVersion, darkerVersion],
+      })
+      void r; void g; void b
+    }
     setConfirming(false)
     setSaving(false)
   }
@@ -155,7 +205,7 @@ export default function Today() {
         </div>
 
         {/* Color hero */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-fade-up">
+        <div className="flex flex-col items-center gap-6 animate-fade-up">
 
           {/* Big color swatch — tall rectangle, editorial */}
           <div
@@ -210,6 +260,126 @@ export default function Today() {
             <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
               Torna domani per il prossimo.
             </p>
+          </div>
+
+          {/* Art Generator */}
+          <div style={{ width: '100%', maxWidth: 400 }}>
+            <ArtGenerator entries={entries} height={220} />
+          </div>
+        </div>
+
+        {showProfile && <ProfileSheet profile={profile} onClose={() => setShowProfile(false)} onSignOut={signOut} />}
+      </div>
+    )
+  }
+
+  // ─── Grace period active (entry confirmed but not yet committed) ─────────────
+  if (pendingGrace) {
+    const light = needsLightText(pendingGrace.colorHex)
+    return (
+      <div className="page-top flex flex-col px-6" style={{ minHeight: '60dvh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--color-muted)' }}>
+              {formatDate(today)}
+            </p>
+          </div>
+          <button onClick={() => setShowProfile(true)} className="profile-btn" style={profileBtnStyle}>
+            {initial}
+          </button>
+        </div>
+
+        <div className="flex flex-col items-center gap-5 animate-fade-up">
+
+          {/* Swatch */}
+          <div
+            className="animate-pop-in"
+            style={{
+              width: '82%', maxWidth: 260,
+              aspectRatio: '4/5',
+              borderRadius: 32,
+              backgroundColor: pendingGrace.colorHex,
+              boxShadow: `0 0 0 1px ${pendingGrace.colorHex}25, 0 24px 72px ${pendingGrace.colorHex}65, 0 6px 24px ${pendingGrace.colorHex}40`,
+              display: 'flex', flexDirection: 'column',
+              justifyContent: 'space-between',
+              padding: '22px 22px 18px',
+            }}
+          >
+            <p style={{ fontSize: 10, fontFamily: 'monospace',
+              color: light ? 'rgba(255,255,255,0.40)' : 'rgba(0,0,0,0.25)',
+              letterSpacing: '0.06em' }}>
+              {pendingGrace.colorHex.toUpperCase()}
+            </p>
+            {pendingGrace.moodLabel && (
+              <p style={{
+                fontSize: 26, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.05,
+                color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)',
+                fontFamily: 'Inter, system-ui, sans-serif',
+              }}>
+                {pendingGrace.moodLabel}
+              </p>
+            )}
+          </div>
+
+          {/* Grace countdown banner */}
+          <div style={{
+            width: '100%', maxWidth: 400,
+            borderRadius: 20,
+            background: `${pendingGrace.colorHex}18`,
+            border: `1.5px solid ${pendingGrace.colorHex}40`,
+            padding: '14px 18px',
+            display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-foreground)', marginBottom: 2 }}>
+                  Periodo di modifica
+                </p>
+                <p style={{ fontSize: 22, fontWeight: 900, fontFamily: 'monospace', color: pendingGrace.colorHex }}>
+                  {formatGraceTimer(graceTimeLeft)}
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>
+                  rimasto per modificare
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={() => {
+                    if (profile) commitGrace(profile.id)
+                  }}
+                  style={{
+                    padding: '8px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                    background: pendingGrace.colorHex,
+                    color: light ? '#fff' : '#1C1917',
+                    fontSize: 12, fontWeight: 700,
+                    boxShadow: `0 4px 12px ${pendingGrace.colorHex}55`,
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  }}
+                >
+                  Conferma ora
+                </button>
+                <button
+                  onClick={() => cancelGrace()}
+                  style={{
+                    padding: '8px 14px', borderRadius: 12, cursor: 'pointer',
+                    background: 'transparent',
+                    border: '1.5px solid var(--color-subtle)',
+                    color: 'var(--color-muted)',
+                    fontSize: 12, fontWeight: 600,
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  }}
+                >
+                  Annulla
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Art Generator */}
+          <div style={{ width: '100%', maxWidth: 400 }}>
+            <ArtGenerator entries={entries} height={220} />
           </div>
         </div>
 
@@ -463,6 +633,10 @@ export default function Today() {
           saving={saving}
           note={note}
           onNoteChange={setNote}
+          tags={tags}
+          onTagsChange={setTags}
+          tagInput={tagInput}
+          onTagInputChange={setTagInput}
           onConfirm={handleConfirm}
           onCancel={() => setConfirming(false)}
         />
@@ -663,9 +837,11 @@ function MixPicker({ label, selected, onSelect }: { label: string; selected: Moo
 }
 
 // ─── Confirm sheet ────────────────────────────────────────────────────────────
-function ConfirmSheet({ selected, saving, note, onNoteChange, onConfirm, onCancel }: {
+function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange, tagInput, onTagInputChange, onConfirm, onCancel }: {
   selected: Selection; saving: boolean
   note: string; onNoteChange: (v: string) => void
+  tags: string[]; onTagsChange: (v: string[]) => void
+  tagInput: string; onTagInputChange: (v: string) => void
   onConfirm: () => void; onCancel: () => void
 }) {
   const light = needsLightText(selected.hex)
@@ -677,6 +853,22 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, onConfirm, onCance
         return mA && mB ? `linear-gradient(135deg, ${mA.hex}, ${mB.hex})` : selected.hex
       })()
     : selected.hex
+
+  const addTag = (raw: string) => {
+    const tag = raw.trim().slice(0, 20).replace(/,/g, '')
+    if (!tag || tags.includes(tag) || tags.length >= 5) return
+    onTagsChange([...tags, tag])
+    onTagInputChange('')
+  }
+
+  const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag(tagInput)
+    }
+  }
+
+  const removeTag = (t: string) => onTagsChange(tags.filter(x => x !== t))
 
   return (
     <div
@@ -728,8 +920,62 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, onConfirm, onCance
             )}
           </div>
 
+          {/* Tags section */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+              Tag (facoltativo)
+            </p>
+            {/* Chips */}
+            {tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {tags.map(t => (
+                  <div
+                    key={t}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: `${selected.hex}20`,
+                      border: `1.5px solid ${selected.hex}50`,
+                      borderRadius: 100,
+                      padding: '3px 10px 3px 12px',
+                    }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)' }}>{t}</span>
+                    <button
+                      onClick={() => removeTag(t)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 2l6 6M8 2l-6 6" stroke="var(--color-muted)" strokeWidth="1.6" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {tags.length < 5 && (
+              <input
+                type="text"
+                value={tagInput}
+                onChange={e => onTagInputChange(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={() => { if (tagInput.trim()) addTag(tagInput) }}
+                placeholder="Digita un tag e premi Invio…"
+                maxLength={20}
+                className="w-full px-4 py-2.5 rounded-xl text-[13px] focus:outline-none"
+                style={{
+                  background: 'var(--color-surface)',
+                  border: '1.5px solid var(--color-subtle)',
+                  color: 'var(--color-foreground)',
+                }}
+              />
+            )}
+            {tags.length >= 5 && (
+              <p className="text-[11px]" style={{ color: 'var(--color-muted)' }}>Massimo 5 tag raggiunto.</p>
+            )}
+          </div>
+
           <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
-            Questa scelta è <strong style={{ color: 'var(--color-foreground)' }}>definitiva</strong> e non può essere modificata.
+            Avrai <strong style={{ color: 'var(--color-foreground)' }}>5 minuti</strong> per modificare prima che venga salvato definitivamente.
           </p>
 
           <div className="flex gap-3">
@@ -741,7 +987,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, onConfirm, onCance
             <button onClick={onConfirm} disabled={saving}
               className="flex-[2] py-3.5 rounded-2xl text-[14px] font-extrabold active:scale-[0.98] transition-all disabled:opacity-60"
               style={{ background: selected.hex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${selected.hex}55` }}>
-              {saving ? '···' : 'Salva per sempre →'}
+              {saving ? '···' : 'Conferma →'}
             </button>
           </div>
         </div>
@@ -751,7 +997,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, onConfirm, onCance
 }
 
 // ─── Profile sheet ────────────────────────────────────────────────────────────
-const profileBtnStyle: React.CSSProperties = {
+const profileBtnStyle: CSSProperties = {
   width: 36, height: 36, borderRadius: '50%',
   background: 'var(--color-surface-raised)',
   border: '1.5px solid var(--color-subtle)',

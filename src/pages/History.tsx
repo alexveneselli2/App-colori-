@@ -6,9 +6,10 @@ import {
   MONTH_FULL, MONTH_SHORT, DAY_INITIAL,
 } from '../lib/dateUtils'
 import { EMPTY_CELL_LIGHT } from '../constants/moods'
+import DeepHistory from '../components/DeepHistory'
 import type { MoodEntry, ViewMode } from '../types'
 
-type Mode = ViewMode | 'diary'
+type Mode = ViewMode | 'diary' | 'timeline'
 
 const DAY_NAMES = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab']
 
@@ -36,10 +37,11 @@ export default function History() {
   const todayStr     = toISO(today)
 
   const tabs: { key: Mode; label: string }[] = [
-    { key: 'weekly',  label: 'Sett.' },
-    { key: 'monthly', label: 'Mese' },
-    { key: 'yearly',  label: 'Anno' },
-    { key: 'diary',   label: 'Diario' },
+    { key: 'weekly',   label: 'Sett.' },
+    { key: 'monthly',  label: 'Mese' },
+    { key: 'yearly',   label: 'Anno' },
+    { key: 'diary',    label: 'Diario' },
+    { key: 'timeline', label: 'Timeline' },
   ]
 
   return (
@@ -79,6 +81,8 @@ export default function History() {
           <MonthlyView today={today} getCellColor={getCellColor} todayStr={todayStr} />
         ) : mode === 'yearly' ? (
           <YearlyView year={today.getFullYear()} getCellColor={getCellColor} todayStr={todayStr} />
+        ) : mode === 'timeline' ? (
+          <DeepHistory entries={entries} />
         ) : (
           <DiaryView entries={entries} />
         )}

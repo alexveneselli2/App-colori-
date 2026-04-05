@@ -51,6 +51,7 @@ export function enterDemo(): void {
         color_hex:      palette[idx],
         mood_label:     labels[idx],
         note:           null,
+        tags:           null,
         source:         'palette' as const,
         latitude:       null,
         longitude:      null,
