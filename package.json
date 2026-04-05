@@ -6,9 +6,20 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:cap": "CAPACITOR=true tsc && CAPACITOR=true vite build",
+    "cap:init": "npx cap init Iride com.iride.app --web-dir dist",
+    "cap:add:android": "npx cap add android",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync": "npm run build:cap && npx cap sync",
+    "cap:android": "npm run build:cap && npx cap sync android && npx cap open android",
+    "cap:ios": "npm run build:cap && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/ios": "^8.3.0",
     "@supabase/supabase-js": "^2.43.1",
     "canvas-confetti": "^1.9.3",
     "html-to-image": "^1.11.11",

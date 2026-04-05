@@ -25,3 +25,7 @@ Thumbs.db
 *.log
 npm-debug.log*
 .vite/
+
+# Capacitor native projects (generated — run 'npm run cap:add:android/ios' to regenerate)
+android/
+ios/
