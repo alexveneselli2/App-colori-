@@ -55,7 +55,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ profile: null })
       return
     }
-    await supabase.auth.signOut()
-    set({ profile: null })
+    try {
+      // 'local' clears the local session immediately without a server round-trip
+      // This works even when offline or when Supabase is slow
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch (e) {
+      console.warn('[Iride] signOut error (ignored):', e)
+    } finally {
+      // Always clear profile — user must always be able to log out
+      set({ profile: null })
+    }
   },
 }))

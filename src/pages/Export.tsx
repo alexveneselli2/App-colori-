@@ -4,6 +4,7 @@ import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { toISO } from '../lib/dateUtils'
 import ExportCanvas, { CANVAS_W, CANVAS_H_FEED, CANVAS_H_STORY } from '../components/ExportCanvas'
+import { useT } from '../store/useLanguageStore'
 import type { ViewMode, ExportStyle, ExportFormat, ExportFont, ExportBg, ExportCellShape, ExportCellGlow } from '../types'
 
 const PIXEL_RATIO = 3
@@ -11,6 +12,7 @@ const PIXEL_RATIO = 3
 export default function Export() {
   const { profile } = useAuthStore()
   const { entries, fetchEntries } = useMoodStore()
+  const t = useT()
   const canvasRef = useRef<HTMLDivElement>(null)
 
   const [loaded,       setLoaded]      = useState(false)
@@ -85,7 +87,7 @@ export default function Export() {
       const file = new File([blob], `iride-${mode}.png`, { type: 'image/png' })
 
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Il mio diario cromatico — Iride' })
+        await navigator.share({ files: [file], title: t.export_share_title })
         setShared(true)
         setTimeout(() => setShared(false), 2500)
       } else {

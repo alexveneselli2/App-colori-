@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import type { MoodEntry } from '../types'
 
 interface Props {
   entries: MoodEntry[]
   height?: number
 }
-
-type Mode = 'fluid' | 'voronoi' | 'skyline'
 
 // ─── Color helpers ────────────────────────────────────────────────────────────
 
@@ -386,66 +384,15 @@ function SkylineMode({ entries, canvasRef }: { entries: MoodEntry[]; canvasRef: 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ArtGenerator({ entries, height = 300 }: Props) {
-  const [mode, setMode] = useState<Mode>('fluid')
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  const modes: { key: Mode; label: string }[] = [
-    { key: 'fluid',   label: 'Fluido'  },
-    { key: 'voronoi', label: 'Voronoi' },
-    { key: 'skyline', label: 'Skyline' },
-  ]
-
   return (
-    <div style={{ width: '100%' }}>
-      {/* Mode selector */}
-      <div style={{
-        display: 'flex',
-        gap: 4,
-        marginBottom: 12,
-        background: 'rgba(0,0,0,0.06)',
-        borderRadius: 100,
-        padding: 4,
-      }}>
-        {modes.map(m => (
-          <button
-            key={m.key}
-            onClick={() => setMode(m.key)}
-            style={{
-              flex: 1,
-              padding: '6px 0',
-              borderRadius: 100,
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: 'Inter, system-ui, sans-serif',
-              transition: 'all 0.2s ease',
-              background: mode === m.key ? '#fff' : 'transparent',
-              color:      mode === m.key ? '#1C1917' : '#79716B',
-              boxShadow:  mode === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-            }}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Canvas */}
-      <div style={{
-        width: '100%',
-        height,
-        borderRadius: 20,
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-        <canvas
-          ref={canvasRef}
-          style={{ width: '100%', height: '100%', display: 'block' }}
-        />
-        {mode === 'fluid'   && <FluidMode    entries={entries} canvasRef={canvasRef} />}
-        {mode === 'voronoi' && <GeometricMode entries={entries} canvasRef={canvasRef} />}
-        {mode === 'skyline' && <SkylineMode   entries={entries} canvasRef={canvasRef} />}
-      </div>
+    <div style={{ width: '100%', height, borderRadius: 20, overflow: 'hidden', position: 'relative' }}>
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+      />
+      <FluidMode entries={entries} canvasRef={canvasRef} />
     </div>
   )
 }

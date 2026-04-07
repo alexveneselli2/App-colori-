@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
 import { enterDemo, getDemoProfile } from '../lib/demo'
+import { useT } from '../store/useLanguageStore'
 
 const BRAND_ORBS = [
   { hex: '#FFD000', y: -6 },
@@ -25,6 +26,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false)
 
   const configured = isSupabaseConfigured()
+  const t = useT()
 
   const handleDemo = () => {
     enterDemo()
@@ -34,20 +36,20 @@ export default function Auth() {
   }
 
   const translateError = (msg: string): string => {
-    if (msg.includes('Invalid login credentials'))  return 'Incorrect email or password.'
-    if (msg.includes('Email not confirmed'))         return 'Please confirm your email. Check your inbox.'
-    if (msg.includes('User already registered'))     return 'An account with this email already exists. Try logging in.'
-    if (msg.includes('Password should be at least')) return 'Password must be at least 6 characters.'
-    if (msg.includes('Unable to validate email'))    return 'Invalid email format.'
+    if (msg.includes('Invalid login credentials'))  return t.auth_err_credentials
+    if (msg.includes('Email not confirmed'))         return t.auth_err_confirm
+    if (msg.includes('User already registered'))     return t.auth_err_exists
+    if (msg.includes('Password should be at least')) return t.auth_err_pw_length
+    if (msg.includes('Unable to validate email'))    return t.auth_err_email
     if (/load failed|network|fetch|failed to fetch/i.test(msg))
-      return 'Could not connect to Supabase. Check credentials in .env.local or use the demo.'
+      return t.auth_err_network
     return msg
   }
 
   const handle = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!configured) {
-      setError('Supabase not configured. Use demo mode to explore the app, or set up your credentials.')
+      setError(t.auth_not_configured)
       return
     }
     setError(null)
@@ -73,7 +75,7 @@ export default function Auth() {
             navigate('/onboarding')
           } else {
             // Email confirmation required
-            setInfo('Almost done! Check your email and click the confirmation link. Then come back and sign in.')
+            setInfo(t.auth_info_confirm)
             setMode('login')
             setPass('')
           }
@@ -126,10 +128,10 @@ export default function Auth() {
               Iride
             </h1>
             <p className="text-[16px] leading-snug font-semibold" style={{ color: 'var(--color-foreground)' }}>
-              Your inner world,<br />in colors.
+              {t.auth_tagline1}<br />{t.auth_tagline2}
             </p>
             <p className="text-[13px] mt-1.5" style={{ color: 'var(--color-muted)' }}>
-              One color every day. Forever.
+              {t.auth_sub}
             </p>
           </div>
 
@@ -137,7 +139,7 @@ export default function Auth() {
           {!configured && (
             <div className="mb-5 px-4 py-3.5 rounded-2xl" style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}>
               <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>
-                Supabase not configured
+                {t.auth_supabase_title}
               </p>
               <p className="text-[11px] leading-relaxed" style={{ color: '#B45309' }}>
                 To use real auth, add <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> and <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code> to GitHub Secrets. You can still use the demo below.
@@ -160,7 +162,7 @@ export default function Auth() {
                   opacity:    !configured ? 0.5 : 1,
                 }}
               >
-                {m === 'login' ? 'Sign in' : 'Sign up'}
+                {m === 'login' ? t.auth_sign_in : t.auth_sign_up}
               </button>
             ))}
           </div>
@@ -185,7 +187,7 @@ export default function Auth() {
             />
             <input
               type="password"
-              placeholder="Password (min. 6 characters)"
+              placeholder={t.auth_pw_placeholder}
               value={pass}
               onChange={e => setPass(e.target.value)}
               required
@@ -223,14 +225,14 @@ export default function Auth() {
                 marginTop: 4,
               }}
             >
-              {loading ? '···' : mode === 'login' ? 'Enter →' : 'Create profile →'}
+              {loading ? '···' : mode === 'login' ? t.auth_enter : t.auth_create}
             </button>
           </form>
 
           {/* Divider */}
           <div className="relative flex items-center gap-3 my-6">
             <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>or</span>
+            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>{t.auth_or}</span>
             <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
           </div>
 
@@ -247,14 +249,14 @@ export default function Auth() {
             }}
           >
             <span style={{ fontSize: 16 }}>✦</span>
-            Try the demo — no account needed
+            {t.auth_demo}
           </button>
 
         </div>
       </div>
 
       <p className="text-center pb-8 text-[11px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-muted)', opacity: 0.4 }}>
-        Iride · One color, every day
+        {t.auth_footer}
       </p>
     </div>
   )

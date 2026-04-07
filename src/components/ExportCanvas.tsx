@@ -9,6 +9,7 @@ import {
   DAY_SHORT,
 } from '../lib/dateUtils'
 import { MOOD_PALETTE } from '../constants/moods'
+import { useT } from '../store/useLanguageStore'
 import type { ViewMode, ExportStyle, ExportFormat, ExportFont, ExportBg, ExportCellShape, ExportCellGlow } from '../types'
 
 export const CANVAS_W       = 360
@@ -91,6 +92,7 @@ function cellBoxShadow(hex: string | null, glow: ExportCellGlow): string | undef
 
 const ExportCanvas = forwardRef<HTMLDivElement, Props>(
   ({ entriesMap, mode, bg, style, format, font, cellShape, cellGlow, username, year, month }, ref) => {
+    const t = useT()
     const { fg, muted, empty, line } = getPalette(bg)
     const bgStyle  = computeBgStyle(bg, entriesMap)
     const FONT     = getFontStack(font)
@@ -105,9 +107,9 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
 
     // ── HEADER ──────────────────────────────────────────────────────────────
     const getDisplayTitle = () => {
-      if (mode === 'weekly')  return 'My week in colors'
-      if (mode === 'monthly') return `My ${MONTH_FULL[month]} in colors`
-      return `My ${year} in colors`
+      if (mode === 'weekly')  return t.canvas_week
+      if (mode === 'monthly') return t.canvas_month.replace('{month}', MONTH_FULL[month])
+      return t.canvas_year.replace('{year}', String(year))
     }
 
     const getDateLabel = () => {

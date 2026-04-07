@@ -3,6 +3,8 @@ import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { MOOD_PALETTE } from '../constants/moods'
 import { toISO } from '../lib/dateUtils'
+import { useT, getActiveLang, useLanguageStore } from '../store/useLanguageStore'
+import type { Translations } from '../lib/i18n'
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -44,8 +46,8 @@ const VALENCE: Record<string, number> = {
 }
 
 // AI-like insights generator based on real patterns
-function generateInsights(entries: {date: string; color_hex: string}[]): string[] {
-  if (entries.length < 3) return ['Record at least 3 days to receive personalized insights.']
+function generateInsights(entries: {date: string; color_hex: string}[], t: Translations): string[] {
+  if (entries.length < 3) return [t.insight_min]
 
   const insights: string[] = []
   const sorted = [...entries].sort((a,b) => b.date.localeCompare(a.date))
@@ -61,8 +63,8 @@ function generateInsights(entries: {date: string; color_hex: string}[]): string[
   const olderAvg  = avg(older)
   const diff = recentAvg - olderAvg
 
-  if (diff > 0.2)  insights.push('Your mood has improved significantly compared to last week. Something positive is happening! ✦')
-  if (diff < -0.2) insights.push('This week feels heavier than recent ones. Consider taking a moment for self-care.')
+  if (diff > 0.2)  insights.push(t.insight_improved)
+  if (diff < -0.2) insights.push(t.insight_harder)
 
   // Streak of positive days
   let posStreak = 0
@@ -70,7 +72,7 @@ function generateInsights(entries: {date: string; color_hex: string}[]): string[
     if ((VALENCE[e.color_hex] ?? 0) >= 0.5) posStreak++
     else break
   }
-  if (posStreak >= 3) insights.push(`You've had ${posStreak} consecutive days of positive emotions. Keep that momentum going!`)
+  if (posStreak >= 3) insights.push(t.insight_streak.replace('{n}', String(posStreak)))
 
   // Weekend vs weekday pattern
   const weekdayAvg = avg(entries.filter(e => {
@@ -80,8 +82,8 @@ function generateInsights(entries: {date: string; color_hex: string}[]): string[
     const d = new Date(e.date).getDay(); return d === 0 || d === 6
   }))
   if (entries.filter(e => [0,6].includes(new Date(e.date).getDay())).length >= 2) {
-    if (weekendAvg - weekdayAvg > 0.25) insights.push('You feel much better on weekends. Try bringing some of that weekend energy into your weekly routine.')
-    if (weekdayAvg - weekendAvg > 0.25) insights.push('Your work days seem more positive than weekends — you\'re someone who loves what they do.')
+    if (weekendAvg - weekdayAvg > 0.25) insights.push(t.insight_weekend)
+    if (weekdayAvg - weekendAvg > 0.25) insights.push(t.insight_workday)
   }
 
   // Dominant mood
@@ -90,7 +92,7 @@ function generateInsights(entries: {date: string; color_hex: string}[]): string[
   const dominant = Object.entries(freq).sort((a,b) => b[1]-a[1])[0]
   if (dominant) {
     const mood = MOOD_PALETTE.find(m => m.hex === dominant[0])
-    if (mood) insights.push(`"${mood.label}" is your most frequent emotion (${dominant[1]} times). It's part of who you are.`)
+    if (mood) insights.push(t.insight_dominant.replace('{mood}', mood.label).replace('{n}', String(dominant[1])))
   }
 
   // Variability
@@ -98,8 +100,8 @@ function generateInsights(entries: {date: string; color_hex: string}[]): string[
   const mean = vals.reduce((a,b) => a+b, 0) / vals.length
   const variance = vals.reduce((a,b) => a + (b-mean)**2, 0) / vals.length
   const stdDev = Math.sqrt(variance)
-  if (stdDev > 0.45) insights.push('Your emotional range is very wide — you\'re a sensitive and deeply lived person.')
-  if (stdDev < 0.15 && entries.length >= 7) insights.push('You have remarkable emotional stability. That consistency is a strength.')
+  if (stdDev > 0.45) insights.push(t.insight_wide)
+  if (stdDev < 0.15 && entries.length >= 7) insights.push(t.insight_stable)
 
   // Low mood streak alert
   let negStreak = 0
@@ -107,13 +109,12 @@ function generateInsights(entries: {date: string; color_hex: string}[]): string[
     if ((VALENCE[e.color_hex] ?? 0) <= -0.3) negStreak++
     else break
   }
-  if (negStreak >= 3) insights.push(`You've logged ${negStreak} hard days in a row. Consider talking to someone you trust.`)
+  if (negStreak >= 3) insights.push(t.insight_hard_streak.replace('{n}', String(negStreak)))
 
-  // Time of month (more negative mid-month?)
   // Morning affirmation based on today's trend
-  if (recentAvg >= 0.6) insights.push('Your recent emotional state is bright. Share that energy with the people around you.')
+  if (recentAvg >= 0.6) insights.push(t.insight_bright)
 
-  return insights.length > 0 ? insights : ['Keep logging your colors to receive more precise insights.']
+  return insights.length > 0 ? insights : [t.insight_keep]
 }
 
 // ── types ──────────────────────────────────────────────────────────────────────
@@ -125,6 +126,9 @@ type Period = 'month' | 'year' | 'all'
 export default function Stats() {
   const { profile } = useAuthStore()
   const { entries, fetchEntries } = useMoodStore()
+  const t = useT()
+  const { pref } = useLanguageStore()
+  void pref // reactive re-render when language changes
   const [loaded, setLoaded] = useState(false)
   const [period, setPeriod] = useState<Period>('month')
   const [focusMood, setFocusMood] = useState<string | null>(null)
@@ -210,7 +214,7 @@ export default function Stats() {
   }, [entries])
 
   // AI insights
-  const insights = useMemo(() => generateInsights(entries), [entries])
+  const insights = useMemo(() => generateInsights(entries, t), [entries, t])
 
   if (!loaded) {
     return (
@@ -238,26 +242,26 @@ export default function Stats() {
       {/* Header */}
       <div className="pb-1">
         <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em]" style={{ color: 'var(--color-foreground)' }}>
-          Insights
+          {t.stats_title}
         </h1>
         <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-          Patterns from your inner world
+          {t.stats_sub}
         </p>
       </div>
 
       {/* Period filter */}
       <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
-        <PeriodBtn p="month" label="This month" />
-        <PeriodBtn p="year"  label="This year" />
-        <PeriodBtn p="all"   label="All time" />
+        <PeriodBtn p="month" label={t.stats_month} />
+        <PeriodBtn p="year"  label={t.stats_year} />
+        <PeriodBtn p="all"   label={t.stats_all} />
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { value: filtered.length, label: 'days',   color: '#FFD000' },
-          { value: currentStreak,   label: 'streak', color: '#FF0A54' },
-          { value: bestStreak,      label: 'record', color: '#C77DFF' },
+          { value: filtered.length, label: t.stats_days,   color: '#FFD000' },
+          { value: currentStreak,   label: t.stats_streak, color: '#FF0A54' },
+          { value: bestStreak,      label: t.stats_record, color: '#C77DFF' },
         ].map(({ value, label, color }) => (
           <div key={label} className="card p-4 flex flex-col items-center text-center gap-1">
             <span
@@ -286,14 +290,14 @@ export default function Stats() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: '#C77DFF' }}>
-                Personal insight {insights.length > 1 ? `(${insightIdx+1}/${insights.length})` : ''}
+                {t.stats_insight} {insights.length > 1 ? `(${insightIdx+1}/${insights.length})` : ''}
               </p>
               <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
                 {insights[insightIdx]}
               </p>
               {insights.length > 1 && (
                 <p className="text-[10px] mt-2" style={{ color: 'var(--color-muted)' }}>
-                  Tap for next →
+                  {t.stats_tap_next}
                 </p>
               )}
             </div>
@@ -305,7 +309,7 @@ export default function Stats() {
       {freq.length > 0 && (
         <div className="card p-5">
           <p className="text-[11px] font-bold uppercase tracking-[0.13em] mb-4" style={{ color: 'var(--color-muted)' }}>
-            Most frequent emotions
+            {t.stats_freq}
           </p>
           <div className="space-y-2.5">
             {freq.slice(0, 8).map(([hex, count]) => {
@@ -322,7 +326,7 @@ export default function Stats() {
                   <div className="flex items-center gap-2.5 mb-1">
                     <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: hex, flexShrink: 0 }} />
                     <span className="text-[12px] font-medium flex-1" style={{ color: 'var(--color-foreground)' }}>
-                      {mood?.label ?? 'Custom'}
+                      {mood?.label ?? t.stats_custom}
                     </span>
                     <span className="text-[11px] tabular-nums" style={{ color: 'var(--color-muted)' }}>{count}×</span>
                   </div>
@@ -347,7 +351,7 @@ export default function Stats() {
       {/* Day-of-week pattern */}
       <div className="card p-5">
         <p className="text-[11px] font-bold uppercase tracking-[0.13em] mb-4" style={{ color: 'var(--color-muted)' }}>
-          Weekly rhythm
+          {t.stats_weekly}
         </p>
         <div className="flex gap-2 justify-between">
           {dowPattern.map((hex, i) => (
@@ -360,20 +364,20 @@ export default function Stats() {
                 transition: 'background 0.3s',
               }} />
               <span className="text-[9px] uppercase tracking-[0.06em]" style={{ color: 'var(--color-muted)' }}>
-                {DAYS_EN[(i + 1) % 7]}
+                {t.days_short[(i + 1) % 7]}
               </span>
             </div>
           ))}
         </div>
         <p className="text-[10px] mt-3" style={{ color: 'var(--color-muted)' }}>
-          The most common color for each day of the week
+          {t.stats_weekly_sub}
         </p>
       </div>
 
       {/* Last 30 days strip */}
       <div className="card p-5">
         <p className="text-[11px] font-bold uppercase tracking-[0.13em] mb-4" style={{ color: 'var(--color-muted)' }}>
-          Last 30 days
+          {t.stats_last30}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 4 }}>
           {last30.map(({ date, color }) => (
@@ -392,8 +396,8 @@ export default function Stats() {
           ))}
         </div>
         <div className="flex justify-between mt-2">
-          <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>30 days ago</span>
-          <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>today</span>
+          <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>{t.stats_30ago}</span>
+          <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>{t.stats_today}</span>
         </div>
       </div>
 
@@ -401,7 +405,7 @@ export default function Stats() {
       {entries.length >= 10 && (
         <div className="card p-5">
           <p className="text-[11px] font-bold uppercase tracking-[0.13em] mb-4" style={{ color: 'var(--color-muted)' }}>
-            Monthly wellbeing trend
+            {t.stats_monthly}
           </p>
           <div className="flex items-end gap-1.5" style={{ height: 60 }}>
             {monthlyValence.map(({ label, val }, i) => {
@@ -429,11 +433,11 @@ export default function Stats() {
           <div className="flex justify-between mt-2">
             <div className="flex items-center gap-1">
               <div style={{ width:7, height:7, borderRadius:'50%', backgroundColor:'#52B788' }} />
-              <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>Positive</span>
+              <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>{t.stats_positive}</span>
             </div>
             <div className="flex items-center gap-1">
               <div style={{ width:7, height:7, borderRadius:'50%', backgroundColor:'#A30015' }} />
-              <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>Difficult</span>
+              <span className="text-[9px]" style={{ color: 'var(--color-muted)' }}>{t.stats_difficult}</span>
             </div>
           </div>
         </div>
@@ -443,7 +447,7 @@ export default function Stats() {
       {filtered.length >= 3 && (
         <div className="card p-5">
           <p className="text-[11px] font-bold uppercase tracking-[0.13em] mb-4" style={{ color: 'var(--color-muted)' }}>
-            Your emotional spectrum
+            {t.stats_spectrum}
           </p>
           <div style={{ display: 'flex', height: 28, borderRadius: 14, overflow: 'hidden', gap: 1 }}>
             {freq.map(([hex, count]) => (
@@ -459,7 +463,7 @@ export default function Stats() {
             ))}
           </div>
           <p className="text-[10px] mt-3" style={{ color: 'var(--color-muted)' }}>
-            The width of each color reflects its frequency in the selected period
+            {t.stats_spectrum_sub}
           </p>
         </div>
       )}
@@ -475,7 +479,7 @@ export default function Stats() {
         return (
           <div className="card p-5">
             <p className="text-[11px] font-bold uppercase tracking-[0.13em] mb-4" style={{ color: 'var(--color-muted)' }}>
-              Emotional balance
+              {t.stats_balance}
             </p>
             <div className="flex gap-1 mb-3" style={{ height: 12, borderRadius: 99 }}>
               {pos > 0 && <div style={{ flex: pos, background: '#52B788', borderRadius: 99 }} />}
@@ -483,9 +487,9 @@ export default function Stats() {
               {neg > 0 && <div style={{ flex: neg, background: '#FF0A54', borderRadius: 99 }} />}
             </div>
             <div className="flex justify-between text-[11px]">
-              <span style={{ color: '#52B788' }}>✦ Positive {Math.round((pos/total)*100)}%</span>
-              <span style={{ color: '#B5A800' }}>● Neutral {Math.round((neu/total)*100)}%</span>
-              <span style={{ color: '#FF0A54' }}>▼ Difficult {Math.round((neg/total)*100)}%</span>
+              <span style={{ color: '#52B788' }}>✦ {t.stats_positive} {Math.round((pos/total)*100)}%</span>
+              <span style={{ color: '#B5A800' }}>● {t.stats_neutral} {Math.round((neu/total)*100)}%</span>
+              <span style={{ color: '#FF0A54' }}>▼ {t.stats_difficult} {Math.round((neg/total)*100)}%</span>
             </div>
           </div>
         )
@@ -496,10 +500,10 @@ export default function Stats() {
         <div className="card p-8 text-center">
           <div className="text-[36px] mb-3">🎨</div>
           <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
-            No data for this period
+            {t.stats_empty}
           </p>
           <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-            Log your color today to start analyzing your emotions.
+            {t.stats_empty_sub}
           </p>
         </div>
       )}

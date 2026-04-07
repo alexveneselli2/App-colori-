@@ -7,11 +7,10 @@ import {
 } from '../lib/dateUtils'
 import { EMPTY_CELL_LIGHT } from '../constants/moods'
 import DeepHistory from '../components/DeepHistory'
+import { useT } from '../store/useLanguageStore'
 import type { MoodEntry, ViewMode } from '../types'
 
 type Mode = ViewMode | 'diary' | 'timeline'
-
-const DAY_NAMES = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab']
 
 function needsLight(hex: string) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
@@ -21,6 +20,7 @@ function needsLight(hex: string) {
 export default function History() {
   const { profile } = useAuthStore()
   const { entries, fetchEntries } = useMoodStore()
+  const t = useT()
   const [mode, setMode]     = useState<Mode>('monthly')
   const [loaded, setLoaded] = useState(false)
 
@@ -37,11 +37,11 @@ export default function History() {
   const todayStr     = toISO(today)
 
   const tabs: { key: Mode; label: string }[] = [
-    { key: 'weekly',   label: 'Week' },
-    { key: 'monthly',  label: 'Month' },
-    { key: 'yearly',   label: 'Year' },
-    { key: 'diary',    label: 'Diary' },
-    { key: 'timeline', label: 'Timeline' },
+    { key: 'weekly',   label: t.history_weekly },
+    { key: 'monthly',  label: t.history_monthly },
+    { key: 'yearly',   label: t.history_yearly },
+    { key: 'diary',    label: t.history_diary },
+    { key: 'timeline', label: t.history_timeline },
   ]
 
   return (
@@ -49,7 +49,7 @@ export default function History() {
       {/* Header + tab bar */}
       <div className="px-5 pb-5">
         <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em] mb-5" style={{ color: 'var(--color-foreground)' }}>
-          Memoria
+          {t.history_title}
         </h1>
         <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
           {tabs.map(tab => (
@@ -93,6 +93,7 @@ export default function History() {
 
 // ─── Diary view ──────────────────────────────────────────────────────────────
 function DiaryView({ entries }: { entries: MoodEntry[] }) {
+  const t = useT()
   const [query, setQuery]           = useState('')
   const [debouncedQuery, setDQ]     = useState('')
   const [chipFilter, setChipFilter] = useState<string>('all')
@@ -136,8 +137,8 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
     return (
       <div className="card p-8 text-center mt-4">
         <p className="text-[32px] mb-3">📖</p>
-        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>Your diary is empty</p>
-        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>When you save a color you can write a note. It will appear here.</p>
+        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>{t.diary_empty}</p>
+        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{t.diary_empty_sub}</p>
       </div>
     )
   }
@@ -170,7 +171,7 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
         <input
           type="text" value={query}
           onChange={e => handleSearch(e.target.value)}
-          placeholder="Search notes and tags…"
+          placeholder={t.diary_search_ph}
           style={{
             width: '100%', padding: '11px 40px 11px 38px', borderRadius: 16, fontSize: 13,
             background: 'var(--color-surface-raised)', border: '1.5px solid var(--color-subtle)',
@@ -188,9 +189,9 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
 
       {/* Filter chips */}
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }} className="no-scrollbar">
-        <button onClick={() => setChipFilter('all')} style={chipStyle(chipFilter === 'all')}>All</button>
-        <button onClick={() => setChipFilter('note')} style={chipStyle(chipFilter === 'note')}>With note</button>
-        <button onClick={() => setChipFilter('location')} style={chipStyle(chipFilter === 'location')}>With location</button>
+        <button onClick={() => setChipFilter('all')} style={chipStyle(chipFilter === 'all')}>{t.diary_all}</button>
+        <button onClick={() => setChipFilter('note')} style={chipStyle(chipFilter === 'note')}>{t.diary_with_note}</button>
+        <button onClick={() => setChipFilter('location')} style={chipStyle(chipFilter === 'location')}>{t.diary_with_loc}</button>
         {top5Colors.map(c => (
           <button key={c.hex} onClick={() => setChipFilter(prev => prev === c.hex ? 'all' : c.hex)}
             style={chipStyle(chipFilter === c.hex, c.hex)}>
@@ -205,14 +206,14 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
       {/* Results count when searching */}
       {(debouncedQuery || chipFilter !== 'all') && (
         <p style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-          {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
+          {filtered.length} {filtered.length === 1 ? t.diary_result : t.diary_results}
         </p>
       )}
 
       {filtered.length === 0 ? (
         <div className="card p-8 text-center">
           <p style={{ fontSize: 28, marginBottom: 8 }}>🔍</p>
-          <p style={{ fontSize: 14, color: 'var(--color-muted)' }}>No results</p>
+          <p style={{ fontSize: 14, color: 'var(--color-muted)' }}>{t.diary_no_results}</p>
         </div>
       ) : (
         Object.entries(byMonth).map(([monthKey, monthEntries]) => {
@@ -231,12 +232,12 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
                       style={{ border: `1.5px solid ${entry.color_hex}30`, background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-xs)' }}>
                       <div style={{ background: entry.color_hex, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 12, fontWeight: 800, color: light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.8)' }}>
-                          {entry.mood_label ?? 'Personalizzato'}
+                          {entry.mood_label ?? t.stats_custom}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           {entry.location_label && <span style={{ fontSize: 9, color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)' }}>📍 {entry.location_label}</span>}
                           <span style={{ fontSize: 10, color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)' }}>
-                            {DAY_NAMES[d.getDay()]} {d.getDate()}
+                            {t.days_short[d.getDay()]} {d.getDate()}
                           </span>
                         </div>
                       </div>
@@ -244,7 +245,7 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
                         {entry.note ? (
                           <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-foreground)' }}>"{entry.note}"</p>
                         ) : (
-                          <p style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>No note.</p>
+                          <p style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>{t.diary_no_note}</p>
                         )}
                         {entry.tags && entry.tags.length > 0 && (
                           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>

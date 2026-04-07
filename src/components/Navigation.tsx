@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useMoodStore } from '../store/useMoodStore'
+import { useT } from '../store/useLanguageStore'
 
 function isAfterNoon(): boolean {
   return new Date().getHours() >= 12
@@ -8,6 +9,7 @@ function isAfterNoon(): boolean {
 
 export default function Navigation() {
   const { entries, todayEntry } = useMoodStore()
+  const t = useT()
   const [bouncing, setBouncing] = useState<string | null>(null)
   const [afterNoon, setAfterNoon] = useState(isAfterNoon())
 
@@ -31,7 +33,7 @@ export default function Navigation() {
   const tabs = [
     {
       to: '/',
-      label: 'Today',
+      label: t.nav_today,
       badge: showTodayBadge,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -48,7 +50,7 @@ export default function Navigation() {
     },
     {
       to: '/history',
-      label: 'Memory',
+      label: t.nav_memory,
       badge: false,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -69,7 +71,7 @@ export default function Navigation() {
     },
     {
       to: '/stats',
-      label: 'Insights',
+      label: t.nav_insights,
       badge: false,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -87,7 +89,7 @@ export default function Navigation() {
     },
     {
       to: '/export',
-      label: 'Export',
+      label: t.nav_export,
       badge: false,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

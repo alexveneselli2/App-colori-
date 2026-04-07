@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useThemeStore } from '../store/useThemeStore'
+import { useT, useLanguageStore } from '../store/useLanguageStore'
 import { MOOD_PALETTE, PALETTE_GROUPS } from '../constants/moods'
 import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
@@ -13,12 +14,6 @@ import {
 } from '../lib/reminder'
 import ArtGenerator from '../components/ArtGenerator'
 import type { MoodColor } from '../constants/moods'
-
-const DAY_NAMES = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
-
-function formatDate(d: Date) {
-  return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_FULL[d.getMonth()]}`
-}
 
 function needsLightText(hex: string): boolean {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -68,6 +63,7 @@ const ORB_COLORS = ['#FFD000','#FF6B00','#FF0A54','#C77DFF','#00B4D8','#52B788',
 export default function Today() {
   const { profile, signOut } = useAuthStore()
   const { entries, todayEntry, pendingGrace, fetchTodayEntry, saveTodayEntry, fetchEntries, beginGrace, cancelGrace, commitGrace, updateGrace } = useMoodStore()
+  const t = useT()
 
   const [loaded, setLoaded]         = useState(false)
   const [tab, setTab]               = useState<Tab>('palette')
@@ -197,7 +193,7 @@ export default function Today() {
   if (todayEntry) {
     const light = needsLightText(todayEntry.color_hex)
     const savedAt = todayEntry.created_at
-      ? new Date(todayEntry.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+      ? new Date(todayEntry.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
       : null
     const weekDays = getWeekDays(today)
     const entryMap = new Map(entries.map(e => [e.date, e.color_hex]))
@@ -210,7 +206,7 @@ export default function Today() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-[10px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--color-muted)' }}>
-              {formatDate(today)}
+              {t.days_full[today.getDay()]}, {today.getDate()} {MONTH_FULL[today.getMonth()]}
             </p>
           </div>
           <button onClick={() => setShowProfile(true)} className="profile-btn" style={profileBtnStyle}>
@@ -246,7 +242,7 @@ export default function Today() {
                     <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
                     <path d="M6.5 3.5v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                   </svg>
-                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>Saved at <strong style={{ color: 'var(--color-foreground)' }}>{savedAt}</strong></span>
+                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{t.today_saved_at} <strong style={{ color: 'var(--color-foreground)' }}>{savedAt}</strong></span>
                 </div>
               )}
               {todayEntry.location_label && (
@@ -277,7 +273,7 @@ export default function Today() {
 
           {/* Week strip */}
           <div className="animate-fade-up w-full max-w-xs" style={{ animationDelay: '0.10s' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>La tua settimana</p>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>{t.today_week}</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
               {weekDays.map((d) => {
                 const iso = toISO(d)
@@ -305,12 +301,12 @@ export default function Today() {
             <button
               className="animate-fade-up"
               style={{ animationDelay: '0.14s', padding: '10px 24px', borderRadius: 16, border: '1.5px solid var(--color-subtle)', background: 'var(--color-surface-raised)', color: 'var(--color-foreground)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-              onClick={() => navigator.share({ text: `I feel ${todayEntry.mood_label ?? todayEntry.color_hex} — Iride` })}
+              onClick={() => navigator.share({ text: t.today_share_text.replace('{mood}', todayEntry.mood_label ?? todayEntry.color_hex) })}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Share today's color
+              {t.today_share}
             </button>
           )}
 
@@ -335,7 +331,7 @@ export default function Today() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-[10px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--color-muted)' }}>
-              {formatDate(today)}
+              {t.days_full[today.getDay()]}, {today.getDate()} {MONTH_FULL[today.getMonth()]}
             </p>
           </div>
           <button onClick={() => setShowProfile(true)} className="profile-btn" style={profileBtnStyle}>
@@ -387,13 +383,13 @@ export default function Today() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-foreground)', marginBottom: 2 }}>
-                  Edit window
+                  {t.today_grace_title}
                 </p>
                 <p style={{ fontSize: 22, fontWeight: 900, fontFamily: 'monospace', color: pendingGrace.colorHex }}>
                   {formatGraceTimer(graceTimeLeft)}
                 </p>
                 <p style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2 }}>
-                  remaining to edit
+                  {t.today_grace_left}
                 </p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -410,7 +406,7 @@ export default function Today() {
                     fontFamily: 'Inter, system-ui, sans-serif',
                   }}
                 >
-                  Confirm now
+                  {t.today_confirm_now}
                 </button>
                 <button
                   onClick={() => cancelGrace()}
@@ -423,7 +419,7 @@ export default function Today() {
                     fontFamily: 'Inter, system-ui, sans-serif',
                   }}
                 >
-                  Cancel
+                  {t.today_cancel}
                 </button>
               </div>
             </div>
@@ -441,7 +437,7 @@ export default function Today() {
               fontFamily: 'Inter, system-ui, sans-serif',
             }}
           >
-            ✏️ Edit
+            {t.today_edit}
           </button>
 
           {/* Art Generator */}
@@ -481,11 +477,10 @@ export default function Today() {
         <div className="flex items-start justify-between mb-5">
           <div>
             <p className="text-[10px] font-bold tracking-[0.18em] uppercase mb-2" style={{ color: 'var(--color-muted)' }}>
-              {formatDate(today)}
+              {t.days_full[today.getDay()]}, {today.getDate()} {MONTH_FULL[today.getMonth()]}
             </p>
             <h1 className="text-[36px] font-extrabold leading-[1.0] tracking-[-0.05em]" style={{ color: 'var(--color-foreground)' }}>
-              Come ti<br />
-              <span style={{ color: selected?.hex ?? 'inherit', transition: 'color 0.4s ease' }}>senti oggi?</span>
+              <span style={{ color: selected?.hex ?? 'inherit', transition: 'color 0.4s ease' }}>{t.today_how}</span>
             </h1>
           </div>
           <button onClick={() => setShowProfile(true)} style={profileBtnStyle}>
@@ -496,26 +491,26 @@ export default function Today() {
         {/* ── Three-tab switcher ── */}
         <div className="flex gap-2 mb-5">
           {([
-            { id: 'palette', label: 'Palette', icon: '⬛' },
-            { id: 'custom',  label: 'Color',  icon: '🎨' },
-            { id: 'mix',     label: 'Mix',     icon: '✦' },
-          ] as { id: Tab; label: string; icon: string }[]).map(t => (
+            { id: 'palette', label: t.tab_palette, icon: '⬛' },
+            { id: 'custom',  label: t.tab_color,   icon: '🎨' },
+            { id: 'mix',     label: t.tab_mix,      icon: '✦' },
+          ] as { id: Tab; label: string; icon: string }[]).map(tabOpt => (
             <button
-              key={t.id}
-              onClick={() => switchTab(t.id)}
+              key={tabOpt.id}
+              onClick={() => switchTab(tabOpt.id)}
               className="flex-1 py-2.5 rounded-2xl text-[12px] font-bold transition-all active:scale-[0.95]"
               style={{
-                background: tab === t.id
+                background: tab === tabOpt.id
                   ? selected?.hex ? `${selected.hex}20` : 'var(--color-surface-raised)'
                   : 'transparent',
-                color: tab === t.id ? (selected?.hex ?? 'var(--color-foreground)') : 'var(--color-muted)',
-                border: tab === t.id
+                color: tab === tabOpt.id ? (selected?.hex ?? 'var(--color-foreground)') : 'var(--color-muted)',
+                border: tab === tabOpt.id
                   ? `1.5px solid ${selected?.hex ? selected.hex + '40' : 'var(--color-subtle)'}`
                   : '1.5px solid transparent',
-                boxShadow: tab === t.id ? 'var(--shadow-xs)' : undefined,
+                boxShadow: tab === tabOpt.id ? 'var(--shadow-xs)' : undefined,
               }}
             >
-              {t.label}
+              {tabOpt.label}
             </button>
           ))}
         </div>
@@ -537,7 +532,7 @@ export default function Today() {
             }} />
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-extrabold tracking-tight" style={{ color: 'var(--color-foreground)' }}>
-                {selected.label ?? 'Custom color'}
+                {selected.label ?? t.custom_placeholder}
               </p>
               <p className="text-[10px] font-mono" style={{ color: 'var(--color-muted)' }}>{selected.hex.toUpperCase()}</p>
             </div>
@@ -574,8 +569,8 @@ export default function Today() {
             <div className="space-y-4">
               {/* Pickers side by side */}
               <div className="grid grid-cols-2 gap-3">
-                <MixPicker label="Emozione A" selected={blendA} onSelect={setBlendA} />
-                <MixPicker label="Emozione B" selected={blendB} onSelect={setBlendB} />
+                <MixPicker label={t.mix_emotion_a} selected={blendA} onSelect={setBlendA} />
+                <MixPicker label={t.mix_emotion_b} selected={blendB} onSelect={setBlendB} />
               </div>
 
               {blendA && blendB ? (
@@ -616,12 +611,12 @@ export default function Today() {
                       boxShadow: `0 6px 24px ${blendHex(blendA.hex, blendB.hex, blendRatio)}55`,
                     }}
                   >
-                    Use this mix →
+                    {t.mix_use}
                   </button>
                 </div>
               ) : (
                 <p className="text-center text-[12px] py-4" style={{ color: 'var(--color-muted)' }}>
-                  Select two emotions to create your mix
+                  {t.mix_hint}
                 </p>
               )}
             </div>
@@ -644,7 +639,7 @@ export default function Today() {
               letterSpacing: '-0.02em',
             }}
           >
-            {selected?.label ? `I feel ${selected.label}` : 'Choose a color'}
+            {selected?.label ? `${t.feel_prefix} ${selected.label}` : t.choose_color}
           </button>
         </div>
 
@@ -785,6 +780,7 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
   setCustomHex: (v: string) => void
   onUse: (label: string) => void
 }) {
+  const t = useT()
   const [sentiment, setSentiment] = useState('')
   const light = needsLightText(customHex)
 
@@ -830,13 +826,13 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
           {/* Sentiment field */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: 'var(--color-muted)' }}>
-              How does this color make you feel? *
+              {t.custom_how}
             </p>
             <input
               type="text"
               value={sentiment}
               onChange={e => setSentiment(e.target.value)}
-              placeholder="e.g. melancholic, at peace, energetic…"
+              placeholder={t.custom_eg}
               maxLength={40}
               className="w-full px-4 py-3 rounded-xl text-[13px] focus:outline-none transition-all"
               style={{
@@ -874,7 +870,7 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
           <button onClick={handleUse} disabled={!isValid}
             className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97] disabled:opacity-30"
             style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
-            Use this color →
+            {t.custom_use}
           </button>
         </div>
       </div>
@@ -928,6 +924,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
   tagInput: string; onTagInputChange: (v: string) => void
   onConfirm: () => void; onCancel: () => void
 }) {
+  const t = useT()
   const light = needsLightText(selected.hex)
   const colorBg = selected.label?.includes('+')
     ? (() => {
@@ -973,7 +970,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
           <p style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.05em', lineHeight: 1.05,
             color: light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.82)',
             fontFamily: 'Inter, system-ui, sans-serif' }}>
-            {selected.label ?? 'Custom color'}
+            {selected.label ?? t.custom_placeholder}
           </p>
         </div>
 
@@ -981,12 +978,12 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
           {/* Note textarea */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-              Why this color? (optional)
+              {t.note_why}
             </p>
             <textarea
               value={note}
               onChange={e => onNoteChange(e.target.value)}
-              placeholder="Write a note about your mood…"
+              placeholder={t.note_ph}
               maxLength={280}
               rows={2}
               className="w-full px-4 py-3 rounded-2xl text-[13px] focus:outline-none resize-none transition-all"
@@ -1007,14 +1004,14 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
           {/* Tags section */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-              Tag (facoltativo)
+              {t.tag_label}
             </p>
             {/* Chips */}
             {tags.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                {tags.map(t => (
+                {tags.map(tag => (
                   <div
-                    key={t}
+                    key={tag}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
                       background: `${selected.hex}20`,
@@ -1023,9 +1020,9 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
                       padding: '3px 10px 3px 12px',
                     }}
                   >
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)' }}>{t}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)' }}>{tag}</span>
                     <button
-                      onClick={() => removeTag(t)}
+                      onClick={() => removeTag(tag)}
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                     >
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -1043,7 +1040,7 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
                 onChange={e => onTagInputChange(e.target.value)}
                 onKeyDown={handleTagKeyDown}
                 onBlur={() => { if (tagInput.trim()) addTag(tagInput) }}
-                placeholder="Digita un tag e premi Invio…"
+                placeholder={t.tag_input_ph}
                 maxLength={20}
                 className="w-full px-4 py-2.5 rounded-xl text-[13px] focus:outline-none"
                 style={{
@@ -1054,24 +1051,24 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
               />
             )}
             {tags.length >= 5 && (
-              <p className="text-[11px]" style={{ color: 'var(--color-muted)' }}>Massimo 5 tag raggiunto.</p>
+              <p className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{t.tag_max}</p>
             )}
           </div>
 
           <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
-            Avrai <strong style={{ color: 'var(--color-foreground)' }}>5 minuti</strong> per modificare prima che venga salvato definitivamente.
+            {t.today_grace_hint}
           </p>
 
           <div className="flex gap-3">
             <button onClick={onCancel}
               className="flex-1 py-3.5 rounded-2xl text-[14px] font-semibold active:scale-[0.98] transition-all"
               style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
-              Cancel
+              {t.today_cancel}
             </button>
             <button onClick={onConfirm} disabled={saving}
               className="flex-[2] py-3.5 rounded-2xl text-[14px] font-extrabold active:scale-[0.98] transition-all disabled:opacity-60"
               style={{ background: selected.hex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${selected.hex}55` }}>
-              {saving ? '···' : 'Conferma →'}
+              {saving ? '···' : t.today_confirm}
             </button>
           </div>
         </div>
@@ -1086,6 +1083,7 @@ function EditGraceSheet({ grace, onSave, onClose }: {
   onSave: (updates: { colorHex?: string; moodLabel?: string | null; note?: string | null; tags?: string[]; source?: 'palette' | 'custom' }) => void
   onClose: () => void
 }) {
+  const t = useT()
   const [editNote, setEditNote] = useState(grace?.note ?? '')
   const [editTags, setEditTags] = useState<string[]>(grace?.tags ?? [])
   const [editTagInput, setEditTagInput] = useState('')
@@ -1123,7 +1121,7 @@ function EditGraceSheet({ grace, onSave, onClose }: {
       >
         {/* Header */}
         <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--color-foreground)' }}>Edit choice</p>
+          <p style={{ fontSize: 17, fontWeight: 800, color: 'var(--color-foreground)' }}>{t.edit_choice}</p>
           <button onClick={onClose} style={{ color: 'var(--color-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -1193,7 +1191,7 @@ function EditGraceSheet({ grace, onSave, onClose }: {
           {/* Note */}
           <div>
             <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-              Nota
+              {t.edit_note}
             </p>
             <textarea value={editNote} onChange={e => setEditNote(e.target.value)} maxLength={280} rows={2}
               style={{ width: '100%', padding: '10px 14px', borderRadius: 14, fontSize: 13, resize: 'none', background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', outline: 'none', lineHeight: 1.5 }} />
@@ -1202,13 +1200,13 @@ function EditGraceSheet({ grace, onSave, onClose }: {
           {/* Tags */}
           <div>
             <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-              Tag
+              {t.tag_label}
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-              {editTags.map(t => (
-                <span key={t} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {t}
-                  <button onClick={() => setEditTags(prev => prev.filter(x => x !== t))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', padding: 0, lineHeight: 1 }}>×</button>
+              {editTags.map(etag => (
+                <span key={etag} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {etag}
+                  <button onClick={() => setEditTags(prev => prev.filter(x => x !== etag))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', padding: 0, lineHeight: 1 }}>×</button>
                 </span>
               ))}
             </div>
@@ -1216,7 +1214,7 @@ function EditGraceSheet({ grace, onSave, onClose }: {
               <input value={editTagInput} onChange={e => setEditTagInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(editTagInput) } }}
                 onBlur={() => { if (editTagInput.trim()) addTag(editTagInput) }}
-                placeholder="Aggiungi tag…" maxLength={20}
+                placeholder={t.edit_tag_ph} maxLength={20}
                 style={{ width: '100%', padding: '8px 14px', borderRadius: 12, fontSize: 12, background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', outline: 'none' }} />
             )}
           </div>
@@ -1224,7 +1222,7 @@ function EditGraceSheet({ grace, onSave, onClose }: {
           <button onClick={handleSave}
             className="w-full py-4 rounded-2xl text-[14px] font-extrabold"
             style={{ background: editSelected?.hex ?? 'var(--color-foreground)', color: editSelected ? (needsLightText(editSelected.hex) ? '#fff' : '#1C1917') : '#fff', boxShadow: editSelected ? `0 6px 20px ${editSelected.hex}55` : undefined }}>
-            Salva modifiche
+            {t.edit_save}
           </button>
         </div>
       </div>
@@ -1248,18 +1246,25 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
   profile: { display_name: string; username: string } | null; onClose: () => void; onSignOut: () => void
 }) {
   const { theme, setTheme } = useThemeStore()
+  const { pref: langPref, setPref: setLangPref } = useLanguageStore()
+  const t = useT()
   const [reminderOn,   setReminderOn]   = useState(getReminderEnabled)
   const [reminderTime, setReminderTimeS] = useState(getReminderTime)
   const themeOptions: { value: 'light' | 'dark' | 'system'; label: string }[] = [
-    { value: 'light',  label: '☀️ Light' },
-    { value: 'dark',   label: '🌙 Dark' },
-    { value: 'system', label: '⚙️ Auto' },
+    { value: 'light',  label: t.theme_light },
+    { value: 'dark',   label: t.theme_dark },
+    { value: 'system', label: t.theme_auto },
+  ]
+  const langOptions: { value: 'en' | 'it' | 'system'; label: string }[] = [
+    { value: 'en',     label: t.lang_en },
+    { value: 'it',     label: t.lang_it },
+    { value: 'system', label: t.lang_system },
   ]
 
   const toggleReminder = async () => {
     if (!reminderOn) {
       if ('Notification' in window && Notification.permission === 'denied') {
-        alert('Notifications are blocked. Enable them in your browser settings.')
+        alert(t.notifications_blocked)
         return
       }
       setReminderEnabled(true)
@@ -1284,8 +1289,8 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md mx-4 rounded-3xl p-6 space-y-5 animate-slide-up"
-        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)' }}
+        className="w-full max-w-md mx-4 rounded-3xl p-6 space-y-5 animate-slide-up overflow-y-auto"
+        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: 'calc(88dvh - env(safe-area-inset-bottom, 0px))' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Brand orb strip */}
@@ -1311,7 +1316,7 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
         {/* Theme selector */}
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-            Theme
+            {t.profile_theme}
           </p>
           <div style={{ display: 'flex', padding: 4, gap: 4, borderRadius: 16, background: 'var(--color-subtle)' }}>
             {themeOptions.map(opt => (
@@ -1331,20 +1336,43 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
           </div>
         </div>
 
+        {/* Language selector */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+            {t.profile_language}
+          </p>
+          <div style={{ display: 'flex', padding: 4, gap: 4, borderRadius: 16, background: 'var(--color-subtle)' }}>
+            {langOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setLangPref(opt.value)}
+                className="flex-1 py-2 rounded-xl text-[12px] font-semibold transition-all"
+                style={{
+                  background: langPref === opt.value ? 'var(--color-surface-raised)' : 'transparent',
+                  color: langPref === opt.value ? 'var(--color-foreground)' : 'var(--color-muted)',
+                  boxShadow: langPref === opt.value ? 'var(--shadow-xs)' : undefined,
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ height: 1, background: 'var(--color-subtle)' }} />
 
         {/* Daily reminder */}
         {'Notification' in window && (
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
-              Daily reminder
+              {t.profile_reminder}
             </p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 16, background: 'var(--color-subtle)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18 }}>🔔</span>
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)', margin: 0 }}>
-                    Remind me every day
+                    {t.reminder_label}
                   </p>
                   {reminderOn && (
                     <input
@@ -1389,7 +1417,7 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Sign out
+          {t.profile_signout}
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
+import { useT } from '../store/useLanguageStore'
 
 const BRAND_GRADIENT = 'linear-gradient(110deg, #FFD000 0%, #FF6B00 20%, #FF0A54 38%, #C77DFF 55%, #00B4D8 72%, #52B788 88%)'
 
@@ -11,6 +12,7 @@ type Step = 'name' | 'username' | 'location'
 export default function Onboarding() {
   const navigate = useNavigate()
   const { fetchProfile } = useAuthStore()
+  const t = useT()
 
   const [step, setStep] = useState<Step>('name')
   const [displayName, setDisplayName] = useState('')
@@ -56,9 +58,9 @@ export default function Onboarding() {
 
       if (insertErr) {
         if (insertErr.code === '23505') {
-          setError('Username already taken. Go back and choose another.')
+          setError(t.ob_err_taken)
         } else if (/failed|network|fetch/i.test(insertErr.message)) {
-          setError('Connection failed. Check your network and try again.')
+          setError(t.ob_err_net)
         } else {
           setError(insertErr.message)
         }
@@ -71,7 +73,7 @@ export default function Onboarding() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setError(/load|network|fetch/i.test(msg)
-        ? 'Connection failed. Use "Try the demo" to test without an account.'
+        ? t.ob_err_demo
         : 'Error: ' + msg)
       setLoading(false)
     }
@@ -82,18 +84,18 @@ export default function Onboarding() {
     <div className="animate-fade-up space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--color-muted)' }}>
-          1 of 3
+          {t.ob_step1}
         </p>
         <h2 className="text-[32px] font-extrabold tracking-[-0.04em] leading-tight mb-2" style={{ color: 'var(--color-foreground)' }}>
-          What's your name?
+          {t.ob_name_title}
         </h2>
         <p className="text-[14px]" style={{ color: 'var(--color-muted)' }}>
-          The name that will appear in your journal.
+          {t.ob_name_sub}
         </p>
       </div>
       <input
         type="text"
-        placeholder="Your name"
+        placeholder={t.ob_name_ph}
         value={displayName}
         onChange={e => setDisplayName(e.target.value)}
         autoFocus
@@ -111,7 +113,7 @@ export default function Onboarding() {
         className="w-full py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-30"
         style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
       >
-        Next →
+        {t.ob_next}
       </button>
     </div>
   )
@@ -121,13 +123,13 @@ export default function Onboarding() {
     <div className="animate-fade-up space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--color-muted)' }}>
-          2 of 3
+          {t.ob_step2}
         </p>
         <h2 className="text-[32px] font-extrabold tracking-[-0.04em] leading-tight mb-2" style={{ color: 'var(--color-foreground)' }}>
-          Choose a username
+          {t.ob_user_title}
         </h2>
         <p className="text-[14px]" style={{ color: 'var(--color-muted)' }}>
-          It will appear on the images you export.
+          {t.ob_user_sub}
         </p>
       </div>
       <div className="relative">
@@ -153,13 +155,13 @@ export default function Onboarding() {
           onClick={() => setStep('name')}
           className="flex-1 py-4 rounded-2xl text-[14px] font-semibold transition-all active:scale-[0.98]"
           style={{ background: 'var(--color-subtle)', color: 'var(--color-foreground)' }}
-        >← Back</button>
+        >{t.ob_back}</button>
         <button
           onClick={() => { if (username.length >= 2) setStep('location') }}
           disabled={username.length < 2}
           className="flex-[2] py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-30"
           style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
-        >Next →</button>
+        >{t.ob_next}</button>
       </div>
     </div>
   )
@@ -169,20 +171,20 @@ export default function Onboarding() {
     <div className="animate-fade-up space-y-6">
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] mb-3" style={{ color: 'var(--color-muted)' }}>
-          3 of 3
+          {t.ob_step3}
         </p>
         <h2 className="text-[32px] font-extrabold tracking-[-0.04em] leading-tight mb-2" style={{ color: 'var(--color-foreground)' }}>
-          Where are you?
+          {t.ob_loc_title}
         </h2>
         <p className="text-[14px]" style={{ color: 'var(--color-muted)' }}>
-          Add geographic context to your emotions.
+          {t.ob_loc_sub}
         </p>
       </div>
 
       {/* City field */}
       <input
         type="text"
-        placeholder="City or area (e.g. New York, California…)"
+        placeholder={t.ob_loc_ph}
         value={city}
         onChange={e => setCity(e.target.value)}
         autoFocus
@@ -218,10 +220,10 @@ export default function Onboarding() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold mb-0.5" style={{ color: 'var(--color-foreground)' }}>
-            Automatic GPS location
+            {t.ob_gps_title}
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
-            Each mood will save coordinates so you can see where you were. You can change this later.
+            {t.ob_gps_desc}
           </p>
         </div>
       </div>
@@ -237,14 +239,14 @@ export default function Onboarding() {
           onClick={() => setStep('username')}
           className="flex-1 py-4 rounded-2xl text-[14px] font-semibold transition-all active:scale-[0.98]"
           style={{ background: 'var(--color-subtle)', color: 'var(--color-foreground)' }}
-        >← Back</button>
+        >{t.ob_back}</button>
         <button
           onClick={handleSubmit}
           disabled={loading}
           className="flex-[2] py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-40"
           style={{ background: 'var(--color-foreground)', color: 'var(--color-surface)' }}
         >
-          {loading ? '···' : 'Start journal →'}
+          {loading ? '···' : t.ob_start}
         </button>
       </div>
     </div>
