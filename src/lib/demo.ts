@@ -32,9 +32,9 @@ export function enterDemo(): void {
       '#2B2D42','#BDB2FF',
     ]
     const labels = [
-      'Sereno','Felice','Grato','Energico','Motivato',
-      'Calmo','Nostalgico','Ansioso','Triste','Arrabbiato',
-      'Vuoto','Confuso',
+      'Serene','Happy','Grateful','Energetic','Motivated',
+      'Calm','Nostalgic','Anxious','Sad','Angry',
+      'Empty','Confused',
     ]
     const entries: DemoEntry[] = []
     const today = new Date()

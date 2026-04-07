@@ -14,7 +14,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   profile: null,
-  loading: true,
+  loading: true,   // App.tsx fast-path sets this to false immediately for unauthenticated users
 
   setProfile: (profile) => set({ profile }),
   setLoading: (loading) => set({ loading }),
@@ -27,11 +27,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const { data } = await supabase
+      const queryPromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
+
+      // 4-second cap so a slow/sleeping Supabase never hangs the app
+      const timeoutPromise = new Promise<{ data: null; error: Error }>(resolve =>
+        setTimeout(() => resolve({ data: null, error: new Error('fetchProfile timeout') }), 4000)
+      )
+
+      const { data } = await Promise.race([queryPromise, timeoutPromise])
       if (data) {
         set({ profile: data as Profile })
         return data as Profile
