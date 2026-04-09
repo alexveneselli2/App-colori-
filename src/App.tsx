@@ -18,9 +18,7 @@ export default function App() {
   // has never created a profile (i.e. just confirmed email for the first time).
   // It is NOT set on logout, so logout always sends to /auth.
   const [shouldOnboard, setShouldOnboard] = useState(false)
-  const [showSplash, setShowSplash] = useState(
-    () => !localStorage.getItem('iride_intro_seen') && !isDemoMode()
-  )
+  const [showSplash, setShowSplash] = useState(() => !isDemoMode())
 
   useEffect(() => {
     if (isDemoMode()) {

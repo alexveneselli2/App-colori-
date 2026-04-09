@@ -4,24 +4,18 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
 import { enterDemo, getDemoProfile } from '../lib/demo'
 
-const BRAND_ORBS = [
-  { hex: '#FFD000', y: -6 },
-  { hex: '#FF6B00', y: -12 },
-  { hex: '#FF0A54', y: -14 },
-  { hex: '#C77DFF', y: -10 },
-  { hex: '#00B4D8', y: -4 },
-  { hex: '#52B788', y: 2 },
-  { hex: '#2D6A4F', y: 6 },
-]
+const BRAND = 'linear-gradient(110deg, #FFD000 0%, #FF6B00 20%, #FF0A54 38%, #C77DFF 55%, #00B4D8 72%, #52B788 88%)'
+
+const DOT_COLORS = ['#FFD000', '#FF6B00', '#FF0A54', '#C77DFF', '#00B4D8', '#52B788']
 
 export default function Auth() {
   const navigate = useNavigate()
   const { fetchProfile, setProfile, setLoading: setGlobalLoading } = useAuthStore()
-  const [mode, setMode]     = useState<'login' | 'signup'>('login')
-  const [email, setEmail]   = useState('')
-  const [pass, setPass]     = useState('')
-  const [error, setError]   = useState<string | null>(null)
-  const [info, setInfo]     = useState<string | null>(null)
+  const [mode, setMode]       = useState<'login' | 'signup'>('login')
+  const [email, setEmail]     = useState('')
+  const [pass, setPass]       = useState('')
+  const [error, setError]     = useState<string | null>(null)
+  const [info, setInfo]       = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const configured = isSupabaseConfigured()
@@ -40,14 +34,14 @@ export default function Auth() {
     if (msg.includes('Password should be at least')) return 'La password deve essere di almeno 6 caratteri.'
     if (msg.includes('Unable to validate email'))    return 'Formato email non valido.'
     if (/load failed|network|fetch|failed to fetch/i.test(msg))
-      return 'Connessione a Supabase non riuscita. Verifica le credenziali in .env.local oppure usa la demo.'
+      return 'Connessione non riuscita. Verifica le credenziali in .env.local oppure usa la demo.'
     return msg
   }
 
   const handle = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!configured) {
-      setError('Supabase non configurato. Usa la modalità demo per esplorare l\'app, oppure configura le credenziali.')
+      setError('Supabase non configurato. Usa la modalità demo per esplorare l\'app.')
       return
     }
     setError(null)
@@ -69,10 +63,8 @@ export default function Auth() {
           setError(translateError(err.message))
         } else if (data.user) {
           if (data.session) {
-            // Email confirmation disabled in Supabase → go straight to onboarding
             navigate('/onboarding')
           } else {
-            // Email confirmation required
             setInfo('Quasi fatto! Controlla la tua email e clicca il link di conferma. Poi torna qui e accedi.')
             setMode('login')
             setPass('')
@@ -88,174 +80,288 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-surface)' }}>
+    <div style={{
+      minHeight: '100dvh',
+      background: '#05050F',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      <style>{`
+        @keyframes authOrbDrift1 {
+          0%,100% { transform: translate(0,0) scale(1); }
+          40%     { transform: translate(20px,-30px) scale(1.06); }
+          70%     { transform: translate(-14px,18px) scale(0.95); }
+        }
+        @keyframes authOrbDrift2 {
+          0%,100% { transform: translate(0,0) scale(1); }
+          35%     { transform: translate(-22px,24px) scale(0.94); }
+          65%     { transform: translate(18px,-20px) scale(1.05); }
+        }
+        @keyframes authIn {
+          from { opacity: 0; transform: translateY(22px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes authShimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes dotFloat {
+          0%,100% { transform: translateY(0); }
+          50%     { transform: translateY(-5px); }
+        }
+        .auth-input {
+          width: 100%;
+          padding: 15px 18px;
+          border-radius: 16px;
+          font-size: 14px;
+          font-family: Inter, system-ui, sans-serif;
+          outline: none;
+          background: rgba(255,255,255,0.07);
+          border: 1.5px solid rgba(255,255,255,0.10);
+          color: #FFFFFF;
+          transition: border-color 0.2s, background 0.2s;
+          box-sizing: border-box;
+        }
+        .auth-input::placeholder { color: rgba(255,255,255,0.32); }
+        .auth-input:focus {
+          border-color: rgba(255,255,255,0.30);
+          background: rgba(255,255,255,0.11);
+        }
+        .auth-input:disabled { opacity: 0.35; }
+      `}</style>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-8 pt-16 pb-10">
-        <div className="w-full max-w-[340px]">
+      {/* Background orbs */}
+      <div style={{
+        position: 'absolute', width: 420, height: 420, borderRadius: '50%',
+        backgroundColor: '#C77DFF', opacity: 0.13, filter: 'blur(100px)',
+        top: '-8%', right: '-18%',
+        animation: 'authOrbDrift1 10s ease-in-out infinite',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', width: 380, height: 380, borderRadius: '50%',
+        backgroundColor: '#FFD000', opacity: 0.11, filter: 'blur(100px)',
+        bottom: '5%', left: '-14%',
+        animation: 'authOrbDrift2 13s ease-in-out infinite 1.5s',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', width: 280, height: 280, borderRadius: '50%',
+        backgroundColor: '#00B4D8', opacity: 0.10, filter: 'blur(80px)',
+        bottom: '30%', right: '5%',
+        animation: 'authOrbDrift1 8s ease-in-out infinite 3s',
+        pointerEvents: 'none',
+      }} />
 
-          {/* Mood orb arc */}
-          <div className="flex items-end justify-center gap-2.5 mb-8" aria-hidden>
-            {BRAND_ORBS.map(({ hex, y }, i) => (
-              <div
-                key={hex}
-                className="animate-float"
-                style={{
-                  width: 28, height: 28,
-                  borderRadius: '50%',
-                  backgroundColor: hex,
-                  transform: `translateY(${y}px)`,
-                  boxShadow: `0 4px 16px ${hex}60, 0 1px 4px ${hex}40`,
-                  flexShrink: 0,
-                  animationDelay: `${i * 0.18}s`,
-                }}
-              />
+      {/* Content */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        flex: 1,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '48px 28px 40px',
+      }}>
+        <div style={{ width: '100%', maxWidth: 340 }}>
+
+          {/* IRIDE wordmark */}
+          <div style={{
+            fontSize: 'clamp(72px, 20vw, 96px)',
+            fontWeight: 900,
+            letterSpacing: '-0.07em',
+            lineHeight: 0.88,
+            background: BRAND,
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            animation: 'authIn 0.6s cubic-bezier(0.22,1,0.36,1) both, authShimmer 4s linear infinite',
+            marginBottom: 18,
+          }}>
+            IRIDE
+          </div>
+
+          {/* Tagline */}
+          <p style={{
+            fontSize: 20, fontWeight: 700, color: '#FFFFFF',
+            letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.25,
+            animation: 'authIn 0.6s 0.1s cubic-bezier(0.22,1,0.36,1) both',
+          }}>
+            Il tuo diario cromatico
+          </p>
+          <p style={{
+            fontSize: 14, color: 'rgba(255,255,255,0.42)', lineHeight: 1.65, marginBottom: 10,
+            animation: 'authIn 0.6s 0.18s cubic-bezier(0.22,1,0.36,1) both',
+          }}>
+            Ogni giorno scegli un colore che racconta<br />come ti senti. La tua storia in un'immagine.
+          </p>
+
+          {/* Color dots */}
+          <div style={{
+            display: 'flex', gap: 8, marginBottom: 36,
+            animation: 'authIn 0.6s 0.26s cubic-bezier(0.22,1,0.36,1) both',
+          }}>
+            {DOT_COLORS.map((c, i) => (
+              <div key={c} style={{
+                width: 9, height: 9, borderRadius: '50%', backgroundColor: c,
+                animation: `dotFloat ${2.5 + i * 0.3}s ${i * 0.15}s ease-in-out infinite`,
+                boxShadow: `0 0 8px ${c}80`,
+              }} />
             ))}
           </div>
 
-          {/* Brand */}
-          <div className="mb-8">
-            <h1
-              className="text-[54px] font-extrabold leading-none tracking-[-0.05em] mb-3"
-              style={{
-                background: 'var(--brand-gradient)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              Iride
-            </h1>
-            <p className="text-[16px] leading-snug font-semibold" style={{ color: 'var(--color-foreground)' }}>
-              Il diario del tuo animo,<br />in colori.
-            </p>
-            <p className="text-[13px] mt-1.5" style={{ color: 'var(--color-muted)' }}>
-              Un colore ogni giorno. Per sempre.
-            </p>
-          </div>
+          {/* Form card */}
+          <div style={{
+            background: 'rgba(255,255,255,0.05)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            borderRadius: 24,
+            border: '1px solid rgba(255,255,255,0.09)',
+            padding: '20px 20px 24px',
+            animation: 'authIn 0.7s 0.32s cubic-bezier(0.22,1,0.36,1) both',
+          }}>
 
-          {/* Supabase not configured banner */}
-          {!configured && (
-            <div className="mb-5 px-4 py-3.5 rounded-2xl" style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}>
-              <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>
-                Supabase non configurato
-              </p>
-              <p className="text-[11px] leading-relaxed" style={{ color: '#B45309' }}>
-                Per usare auth reale, aggiungi <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> e <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code> nei GitHub Secrets. Puoi comunque usare la demo qui sotto.
-              </p>
+            {/* Supabase not configured banner */}
+            {!configured && (
+              <div style={{
+                marginBottom: 16, padding: '12px 14px', borderRadius: 14,
+                background: 'rgba(251,197,7,0.12)', border: '1px solid rgba(251,197,7,0.25)',
+              }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#FCD34D', marginBottom: 4 }}>
+                  Supabase non configurato
+                </p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
+                  Aggiungi le credenziali nei GitHub Secrets per abilitare l'autenticazione.
+                </p>
+              </div>
+            )}
+
+            {/* Mode tabs */}
+            <div style={{
+              display: 'flex', padding: 4, gap: 4, borderRadius: 14, marginBottom: 16,
+              background: 'rgba(255,255,255,0.07)',
+            }}>
+              {(['login', 'signup'] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { setMode(m); setError(null); setInfo(null) }}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 700, fontFamily: 'Inter, system-ui, sans-serif',
+                    transition: 'all 0.2s',
+                    background: mode === m ? 'rgba(255,255,255,0.14)' : 'transparent',
+                    color: mode === m ? '#FFFFFF' : 'rgba(255,255,255,0.40)',
+                    opacity: !configured ? 0.5 : 1,
+                  }}
+                >
+                  {m === 'login' ? 'Accedi' : 'Registrati'}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Mode tabs */}
-          <div className="flex p-1 gap-1 rounded-2xl mb-5" style={{ background: 'var(--color-subtle)' }}>
-            {(['login', 'signup'] as const).map(m => (
+            {/* Form */}
+            <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input
+                className="auth-input"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                disabled={!configured}
+                autoComplete="email"
+              />
+              <input
+                className="auth-input"
+                type="password"
+                placeholder="Password (min. 6 caratteri)"
+                value={pass}
+                onChange={e => setPass(e.target.value)}
+                required
+                minLength={6}
+                disabled={!configured}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+
+              {error && (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 12,
+                  background: 'rgba(190,18,60,0.18)', border: '1px solid rgba(190,18,60,0.35)',
+                }}>
+                  <p style={{ fontSize: 12, color: '#FCA5A5', lineHeight: 1.5 }}>{error}</p>
+                </div>
+              )}
+              {info && (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 12,
+                  background: 'rgba(22,163,74,0.18)', border: '1px solid rgba(22,163,74,0.35)',
+                }}>
+                  <p style={{ fontSize: 12, color: '#86EFAC', lineHeight: 1.5 }}>{info}</p>
+                </div>
+              )}
+
               <button
-                key={m}
-                type="button"
-                onClick={() => { setMode(m); setError(null); setInfo(null) }}
-                className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97]"
+                type="submit"
+                disabled={loading || !configured}
                 style={{
-                  background: mode === m ? 'var(--color-surface-raised)' : 'transparent',
-                  color:      mode === m ? 'var(--color-foreground)'     : 'var(--color-muted)',
-                  boxShadow:  mode === m ? 'var(--shadow-xs)'            : undefined,
-                  opacity:    !configured ? 0.5 : 1,
+                  width: '100%', padding: '15px 0', borderRadius: 16, border: 'none',
+                  fontSize: 15, fontWeight: 800, fontFamily: 'Inter, system-ui, sans-serif',
+                  cursor: loading || !configured ? 'default' : 'pointer',
+                  background: BRAND, backgroundSize: '200% auto',
+                  color: '#FFFFFF',
+                  boxShadow: '0 8px 32px rgba(255,107,0,0.35)',
+                  transition: 'opacity 0.2s, transform 0.15s',
+                  opacity: loading || !configured ? 0.45 : 1,
+                  marginTop: 4,
                 }}
               >
-                {m === 'login' ? 'Accedi' : 'Registrati'}
+                {loading ? '···' : mode === 'login' ? 'Entra →' : 'Crea il profilo →'}
               </button>
-            ))}
+            </form>
           </div>
-
-          {/* Form */}
-          <form onSubmit={handle} className="space-y-3">
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              disabled={!configured}
-              autoComplete="email"
-              className="w-full px-5 py-4 rounded-2xl text-[14px] focus:outline-none transition-all disabled:opacity-40"
-              style={{
-                background: 'var(--color-surface-raised)',
-                border: '1.5px solid var(--color-subtle)',
-                color: 'var(--color-foreground)',
-                boxShadow: 'var(--shadow-xs)',
-              }}
-            />
-            <input
-              type="password"
-              placeholder="Password (min. 6 caratteri)"
-              value={pass}
-              onChange={e => setPass(e.target.value)}
-              required
-              minLength={6}
-              disabled={!configured}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              className="w-full px-5 py-4 rounded-2xl text-[14px] focus:outline-none transition-all disabled:opacity-40"
-              style={{
-                background: 'var(--color-surface-raised)',
-                border: '1.5px solid var(--color-subtle)',
-                color: 'var(--color-foreground)',
-                boxShadow: 'var(--shadow-xs)',
-              }}
-            />
-
-            {error && (
-              <div className="px-4 py-3 rounded-2xl" style={{ background: '#FFF1F2', border: '1px solid #FECDD3' }}>
-                <p className="text-[12px] leading-relaxed" style={{ color: '#BE123C' }}>{error}</p>
-              </div>
-            )}
-            {info && (
-              <div className="px-4 py-3 rounded-2xl" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                <p className="text-[12px] leading-relaxed" style={{ color: '#166534' }}>{info}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !configured}
-              className="w-full py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-40"
-              style={{
-                background: 'var(--color-foreground)',
-                color: 'var(--color-surface)',
-                boxShadow: '0 4px 20px rgba(28,25,23,0.18)',
-                marginTop: 4,
-              }}
-            >
-              {loading ? '···' : mode === 'login' ? 'Entra →' : 'Crea il profilo →'}
-            </button>
-          </form>
 
           {/* Divider */}
-          <div className="relative flex items-center gap-3 my-6">
-            <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>oppure</span>
-            <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0',
+            animation: 'authIn 0.6s 0.44s cubic-bezier(0.22,1,0.36,1) both',
+          }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.10)' }} />
+            <span style={{ fontSize: 11, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.28)', fontWeight: 600 }}>OPPURE</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.10)' }} />
           </div>
 
-          {/* Demo */}
+          {/* Demo button */}
           <button
             type="button"
             onClick={handleDemo}
-            className="w-full py-4 rounded-2xl text-[14px] font-semibold transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             style={{
-              background: 'var(--color-surface-raised)',
-              color: 'var(--color-foreground)',
-              border: '1.5px solid var(--color-subtle)',
-              boxShadow: 'var(--shadow-sm)',
+              width: '100%', padding: '15px 0', borderRadius: 16, border: '1.5px solid rgba(255,255,255,0.14)',
+              fontSize: 14, fontWeight: 700, fontFamily: 'Inter, system-ui, sans-serif',
+              cursor: 'pointer',
+              background: 'rgba(255,255,255,0.05)',
+              backdropFilter: 'blur(12px)',
+              color: 'rgba(255,255,255,0.75)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              animation: 'authIn 0.6s 0.5s cubic-bezier(0.22,1,0.36,1) both',
             }}
           >
-            <span style={{ fontSize: 16 }}>✦</span>
+            <span style={{ fontSize: 15 }}>✦</span>
             Prova il demo — senza account
           </button>
 
+          <p style={{
+            textAlign: 'center', marginTop: 24,
+            fontSize: 10, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.15)',
+            fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif',
+            animation: 'authIn 0.6s 0.58s cubic-bezier(0.22,1,0.36,1) both',
+          }}>
+            IRIDE · OGNI GIORNO, UN COLORE
+          </p>
+
         </div>
       </div>
-
-      <p className="text-center pb-8 text-[11px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-muted)', opacity: 0.4 }}>
-        Iride · Ogni giorno, un colore
-      </p>
     </div>
   )
 }
