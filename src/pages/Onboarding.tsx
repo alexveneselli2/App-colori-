@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
+import { enterDemo, getDemoProfile } from '../lib/demo'
 
 const BRAND_GRADIENT = 'linear-gradient(110deg, #FFD000 0%, #FF6B00 20%, #FF0A54 38%, #C77DFF 55%, #00B4D8 72%, #52B788 88%)'
 
@@ -10,7 +11,7 @@ type Step = 'name' | 'username' | 'location'
 
 export default function Onboarding() {
   const navigate = useNavigate()
-  const { fetchProfile } = useAuthStore()
+  const { fetchProfile, setProfile, setLoading: setGlobalLoading } = useAuthStore()
 
   const [step, setStep] = useState<Step>('name')
   const [displayName, setDisplayName] = useState('')
@@ -250,6 +251,18 @@ export default function Onboarding() {
     </div>
   )
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    navigate('/auth')
+  }
+
+  const handleDemo = () => {
+    enterDemo()
+    setProfile(getDemoProfile())
+    setGlobalLoading(false)
+    navigate('/')
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16"
       style={{ background: 'var(--color-surface)' }}>
@@ -285,6 +298,26 @@ export default function Onboarding() {
         {step === 'name'     && <StepName />}
         {step === 'username' && <StepUsername />}
         {step === 'location' && <StepLocation />}
+
+        {/* Escape hatches */}
+        <div className="mt-10 flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDemo}
+            className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-all active:scale-[0.97]"
+            style={{ color: 'var(--color-muted)', background: 'var(--color-subtle)' }}
+          >
+            ✦ Esplora senza account
+          </button>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="text-[11px] transition-all active:scale-[0.97]"
+            style={{ color: 'var(--color-muted)', opacity: 0.5 }}
+          >
+            Esci e torna al login
+          </button>
+        </div>
       </div>
     </div>
   )
