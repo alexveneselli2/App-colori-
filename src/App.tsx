@@ -27,13 +27,19 @@ export default function App() {
       return
     }
 
+    // Fallback: force-clear loading after 8s in case Supabase hangs
+    const timeout = setTimeout(() => setLoading(false), 8000)
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setHasSession(true)
-        await fetchProfile(session.user.id)
-      }
+      try {
+        if (session?.user) {
+          setHasSession(true)
+          await fetchProfile(session.user.id)
+        }
+      } catch { /* ignore — setLoading(false) runs below */ }
+      clearTimeout(timeout)
       setLoading(false)
-    })
+    }).catch(() => { clearTimeout(timeout); setLoading(false) })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -43,7 +49,7 @@ export default function App() {
           setLoading(false)
         } else if (session?.user) {
           setHasSession(true)
-          await fetchProfile(session.user.id)
+          try { await fetchProfile(session.user.id) } catch { /* ignore */ }
           setLoading(false)
         }
       }
