@@ -27,11 +27,18 @@ export default function App() {
       return
     }
 
+    // Safety net: if nothing resolves in 8 s, bail to auth screen
+    const timeout = setTimeout(() => setLoading(false), 8000)
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setHasSession(true)
-        await fetchProfile(session.user.id)
+        try { await fetchProfile(session.user.id) } catch { /* ignore */ }
       }
+      clearTimeout(timeout)
+      setLoading(false)
+    }).catch(() => {
+      clearTimeout(timeout)
       setLoading(false)
     })
 
@@ -43,13 +50,13 @@ export default function App() {
           setLoading(false)
         } else if (session?.user) {
           setHasSession(true)
-          await fetchProfile(session.user.id)
+          try { await fetchProfile(session.user.id) } catch { /* ignore */ }
           setLoading(false)
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => { clearTimeout(timeout); subscription.unsubscribe() }
   }, [])
 
   if (showSplash) {
