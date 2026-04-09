@@ -35,6 +35,9 @@ export default function DeepHistory({ entries }: Props) {
   const [tooltip, setTooltip]       = useState<Tooltip | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Cleanup long-press timer on unmount
+  useEffect(() => () => { if (longPressTimer.current) clearTimeout(longPressTimer.current) }, [])
+
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date))
 
   // Auto-scroll to today

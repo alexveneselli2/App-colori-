@@ -4,7 +4,7 @@ import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useThemeStore } from '../store/useThemeStore'
 import { MOOD_PALETTE } from '../constants/moods'
-import { MONTH_FULL, getWeekDays, toISO } from '../lib/dateUtils'
+import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
 import type { GraceEntry } from '../lib/gracePeriod'
 import ArtGenerator from '../components/ArtGenerator'
@@ -287,10 +287,9 @@ export default function Today() {
                 const dayStr = toISO(day)
                 const dayEntry = entries.find(e => e.date === dayStr)
                 const isToday = dayStr === toISO(today)
-                const DAY_LETTERS = ['L','M','M','G','V','S','D']
                 return (
-                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                    <p style={{ fontSize: 8, fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase' }}>{DAY_LETTERS[i]}</p>
+                  <div key={dayStr} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                    <p style={{ fontSize: 8, fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase' }}>{DAY_INITIAL[i]}</p>
                     <div style={{
                       width: 32, height: 32, borderRadius: '50%',
                       backgroundColor: dayEntry?.color_hex ?? 'var(--color-subtle)',

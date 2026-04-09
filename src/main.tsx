@@ -13,7 +13,7 @@ if ('serviceWorker' in navigator) {
 // Daily reminder scheduler (client-side, runs while app is open/in background)
 function scheduleDailyReminder() {
   const time = localStorage.getItem('iride_reminder_time')
-  if (!time || Notification.permission !== 'granted') return
+  if (!time || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
 
   const [h, m] = time.split(':').map(Number)
   const now    = new Date()
