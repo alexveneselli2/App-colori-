@@ -131,8 +131,12 @@ export default function Stats() {
   const [insightIdx, setInsightIdx] = useState(0)
 
   useEffect(() => {
-    if (profile) fetchEntries(profile.id).then(() => setLoaded(true))
-  }, [profile])
+    if (profile && !loaded) {
+      fetchEntries(profile.id)
+        .then(() => setLoaded(true))
+        .catch(() => setLoaded(true))
+    }
+  }, [profile, loaded, fetchEntries])
 
   // Filter entries by period
   const today = new Date()

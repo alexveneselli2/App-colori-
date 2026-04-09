@@ -83,13 +83,15 @@ export default function Today() {
   const today = new Date()
 
   useEffect(() => {
-    if (profile) {
+    if (profile && !loaded) {
       Promise.all([
         fetchTodayEntry(profile.id),
         entries.length === 0 ? fetchEntries(profile.id) : Promise.resolve(),
-      ]).then(() => setLoaded(true))
+      ])
+        .then(() => setLoaded(true))
+        .catch(() => setLoaded(true))
     }
-  }, [profile])
+  }, [profile, loaded])
 
   // Grace countdown timer
   useEffect(() => {

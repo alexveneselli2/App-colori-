@@ -168,12 +168,13 @@ function GeometricMode({ entries, canvasRef }: { entries: MoodEntry[]; canvasRef
     const sw = Math.ceil(W / SCALE)
     const sh = Math.ceil(H / SCALE)
 
+    // Reuse a single off-screen canvas to avoid memory leaks
+    const offCanvas = document.createElement('canvas')
+    offCanvas.width  = sw
+    offCanvas.height = sh
+    const offCtx = offCanvas.getContext('2d')
+
     const renderVoronoi = () => {
-      // Off-screen low-res
-      const offCanvas = document.createElement('canvas')
-      offCanvas.width  = sw
-      offCanvas.height = sh
-      const offCtx = offCanvas.getContext('2d')
       if (!offCtx) return
 
       const imgData = offCtx.createImageData(sw, sh)

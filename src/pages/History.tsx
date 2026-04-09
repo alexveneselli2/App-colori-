@@ -28,9 +28,11 @@ export default function History() {
 
   useEffect(() => {
     if (profile && !loaded) {
-      fetchEntries(profile.id).then(() => setLoaded(true))
+      fetchEntries(profile.id)
+        .then(() => setLoaded(true))
+        .catch(() => setLoaded(true)) // show empty state rather than infinite spinner
     }
-  }, [profile])
+  }, [profile, loaded, fetchEntries])
 
   const entryMap     = new Map(entries.map(e => [e.date, e.color_hex]))
   const getCellColor = (d: Date | null) => d ? (entryMap.get(toISO(d)) ?? null) : null

@@ -18,6 +18,17 @@ import {
 import type { GraceEntry } from '../lib/gracePeriod'
 import type { MoodEntry } from '../types'
 
+const FETCH_TIMEOUT = 10_000 // 10 seconds
+
+/** Returns a promise that rejects after `ms` milliseconds */
+function timeoutSignal(ms: number): { promise: Promise<never>; clear: () => void } {
+  let id: ReturnType<typeof setTimeout>
+  const promise = new Promise<never>((_, reject) => {
+    id = setTimeout(() => reject(new Error('Timeout')), ms)
+  })
+  return { promise, clear: () => clearTimeout(id) }
+}
+
 interface SaveOptions {
   note?: string | null
   tags?: string[]
@@ -70,12 +81,24 @@ export const useMoodStore = create<MoodState>((set, get) => ({
       return
     }
     set({ loading: true })
-    const { data } = await supabase
-      .from('mood_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-    set({ entries: (data as MoodEntry[]) ?? [], loading: false })
+    const t = timeoutSignal(FETCH_TIMEOUT)
+    try {
+      const result = await Promise.race([
+        supabase
+          .from('mood_entries')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false }),
+        t.promise,
+      ])
+      t.clear()
+      if (result.error) console.warn('[Iride] fetchEntries error:', result.error.message)
+      set({ entries: (result.data as MoodEntry[]) ?? [], loading: false })
+    } catch {
+      t.clear()
+      console.warn('[Iride] fetchEntries timeout or network error')
+      set({ loading: false })
+    }
   },
 
   fetchTodayEntry: async (userId) => {
@@ -84,13 +107,24 @@ export const useMoodStore = create<MoodState>((set, get) => ({
       await get().initGrace(userId)
       return
     }
-    const { data } = await supabase
-      .from('mood_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('date', todayISO())
-      .maybeSingle()
-    set({ todayEntry: (data as MoodEntry | null) ?? null })
+    const t = timeoutSignal(FETCH_TIMEOUT)
+    try {
+      const result = await Promise.race([
+        supabase
+          .from('mood_entries')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('date', todayISO())
+          .maybeSingle(),
+        t.promise,
+      ])
+      t.clear()
+      if (result.error) console.warn('[Iride] fetchTodayEntry error:', result.error.message)
+      set({ todayEntry: (result.data as MoodEntry | null) ?? null })
+    } catch {
+      t.clear()
+      console.warn('[Iride] fetchTodayEntry timeout or network error')
+    }
     await get().initGrace(userId)
   },
 

@@ -117,9 +117,11 @@ export default function Export() {
 
   useEffect(() => {
     if (profile && !loaded) {
-      fetchEntries(profile.id).then(() => setLoaded(true))
+      fetchEntries(profile.id)
+        .then(() => setLoaded(true))
+        .catch(() => setLoaded(true))
     }
-  }, [profile])
+  }, [profile, loaded, fetchEntries])
 
   const entriesMap = new Map(entries.map(e => [e.date, e.color_hex]))
   const canvasH    = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
