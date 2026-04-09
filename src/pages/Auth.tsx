@@ -14,14 +14,32 @@ const BRAND_ORBS = [
   { hex: '#2D6A4F', y: 6 },
 ]
 
+const FEATURES = [
+  {
+    color: '#FFD000',
+    title: 'Un colore al giorno',
+    desc: 'Scegli ogni mattina il colore che racconta come ti senti. Una scelta sola, custodita per sempre.',
+  },
+  {
+    color: '#00B4D8',
+    title: 'La tua storia in un\'immagine',
+    desc: 'Settimane, mesi, anni di emozioni diventano un archivio cromatico unico e bellissimo.',
+  },
+  {
+    color: '#FF0A54',
+    title: 'Condividi con il mondo',
+    desc: 'Genera poster pronti per Instagram — feed 1:1 o story 9:16 — con il tuo stile personale.',
+  },
+]
+
 export default function Auth() {
   const navigate = useNavigate()
   const { fetchProfile, setProfile, setLoading: setGlobalLoading } = useAuthStore()
-  const [mode, setMode]     = useState<'login' | 'signup'>('login')
-  const [email, setEmail]   = useState('')
-  const [pass, setPass]     = useState('')
-  const [error, setError]   = useState<string | null>(null)
-  const [info, setInfo]     = useState<string | null>(null)
+  const [mode, setMode]       = useState<'login' | 'signup'>('signup')
+  const [email, setEmail]     = useState('')
+  const [pass, setPass]       = useState('')
+  const [error, setError]     = useState<string | null>(null)
+  const [info, setInfo]       = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const configured = isSupabaseConfigured()
@@ -40,14 +58,14 @@ export default function Auth() {
     if (msg.includes('Password should be at least')) return 'La password deve essere di almeno 6 caratteri.'
     if (msg.includes('Unable to validate email'))    return 'Formato email non valido.'
     if (/load failed|network|fetch|failed to fetch/i.test(msg))
-      return 'Connessione a Supabase non riuscita. Verifica le credenziali in .env.local oppure usa la demo.'
+      return 'Connessione non riuscita. Usa la demo per esplorare l\'app.'
     return msg
   }
 
   const handle = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!configured) {
-      setError('Supabase non configurato. Usa la modalità demo per esplorare l\'app, oppure configura le credenziali.')
+      setError('Supabase non configurato. Usa la modalità demo per esplorare l\'app.')
       return
     }
     setError(null)
@@ -69,10 +87,8 @@ export default function Auth() {
           setError(translateError(err.message))
         } else if (data.user) {
           if (data.session) {
-            // Email confirmation disabled in Supabase → go straight to onboarding
             navigate('/onboarding')
           } else {
-            // Email confirmation required
             setInfo('Quasi fatto! Controlla la tua email e clicca il link di conferma. Poi torna qui e accedi.')
             setMode('login')
             setPass('')
@@ -89,22 +105,20 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-surface)' }}>
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-14 pb-10">
+        <div className="w-full max-w-[360px]">
 
-      <div className="flex-1 flex flex-col items-center justify-center px-8 pt-16 pb-10">
-        <div className="w-full max-w-[340px]">
-
-          {/* Mood orb arc */}
-          <div className="flex items-end justify-center gap-2.5 mb-8" aria-hidden>
+          {/* Orb arc */}
+          <div className="flex items-end justify-center gap-2.5 mb-7" aria-hidden>
             {BRAND_ORBS.map(({ hex, y }, i) => (
               <div
                 key={hex}
                 className="animate-float"
                 style={{
-                  width: 28, height: 28,
-                  borderRadius: '50%',
+                  width: 26, height: 26, borderRadius: '50%',
                   backgroundColor: hex,
                   transform: `translateY(${y}px)`,
-                  boxShadow: `0 4px 16px ${hex}60, 0 1px 4px ${hex}40`,
+                  boxShadow: `0 4px 16px ${hex}60`,
                   flexShrink: 0,
                   animationDelay: `${i * 0.18}s`,
                 }}
@@ -113,9 +127,9 @@ export default function Auth() {
           </div>
 
           {/* Brand */}
-          <div className="mb-8">
+          <div className="mb-6 text-center">
             <h1
-              className="text-[54px] font-extrabold leading-none tracking-[-0.05em] mb-3"
+              className="text-[52px] font-extrabold leading-none tracking-[-0.05em] mb-3"
               style={{
                 background: 'var(--brand-gradient)',
                 WebkitBackgroundClip: 'text',
@@ -125,29 +139,83 @@ export default function Auth() {
             >
               Iride
             </h1>
-            <p className="text-[16px] leading-snug font-semibold" style={{ color: 'var(--color-foreground)' }}>
-              Il diario del tuo animo,<br />in colori.
+            <p className="text-[18px] font-bold leading-tight tracking-[-0.02em]" style={{ color: 'var(--color-foreground)' }}>
+              Il diario che parla<br />per colori
             </p>
-            <p className="text-[13px] mt-1.5" style={{ color: 'var(--color-muted)' }}>
-              Un colore ogni giorno. Per sempre.
+            <p className="text-[13px] mt-2 leading-relaxed" style={{ color: 'var(--color-muted)' }}>
+              Ogni giorno scegli un colore che racconta<br />il tuo stato d'animo. Semplice. Bello. Tuo.
             </p>
+          </div>
+
+          {/* Feature bullets */}
+          <div className="space-y-2.5 mb-7">
+            {FEATURES.map(f => (
+              <div
+                key={f.color}
+                className="flex items-start gap-3 px-4 py-3.5 rounded-2xl"
+                style={{
+                  background: `${f.color}0E`,
+                  border: `1.5px solid ${f.color}28`,
+                }}
+              >
+                <div style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  backgroundColor: f.color,
+                  flexShrink: 0,
+                  marginTop: 4,
+                  boxShadow: `0 0 8px ${f.color}70`,
+                }} />
+                <div>
+                  <p className="text-[13px] font-bold leading-tight mb-0.5" style={{ color: 'var(--color-foreground)' }}>
+                    {f.title}
+                  </p>
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-muted)' }}>
+                    {f.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Supabase not configured banner */}
           {!configured && (
             <div className="mb-5 px-4 py-3.5 rounded-2xl" style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A' }}>
               <p className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>
-                Supabase non configurato
+                Backend non configurato
               </p>
               <p className="text-[11px] leading-relaxed" style={{ color: '#B45309' }}>
-                Per usare auth reale, aggiungi <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> e <code style={{ fontSize: 10, background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code> nei GitHub Secrets. Puoi comunque usare la demo qui sotto.
+                Per usare l'auth reale aggiungi i GitHub Secrets. Puoi comunque esplorare tutto con la demo.
               </p>
             </div>
           )}
 
+          {/* Demo CTA — prominent first */}
+          <button
+            type="button"
+            onClick={handleDemo}
+            className="w-full py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2.5 mb-4"
+            style={{
+              background: 'var(--color-foreground)',
+              color: 'var(--color-surface)',
+              boxShadow: '0 6px 24px rgba(28,25,23,0.18)',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>✦</span>
+            Prova subito — senza account
+          </button>
+
+          {/* Divider */}
+          <div className="relative flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
+            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>
+              oppure accedi con email
+            </span>
+            <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
+          </div>
+
           {/* Mode tabs */}
-          <div className="flex p-1 gap-1 rounded-2xl mb-5" style={{ background: 'var(--color-subtle)' }}>
-            {(['login', 'signup'] as const).map(m => (
+          <div className="flex p-1 gap-1 rounded-2xl mb-4" style={{ background: 'var(--color-subtle)' }}>
+            {(['signup', 'login'] as const).map(m => (
               <button
                 key={m}
                 type="button"
@@ -160,7 +228,7 @@ export default function Auth() {
                   opacity:    !configured ? 0.5 : 1,
                 }}
               >
-                {m === 'login' ? 'Accedi' : 'Registrati'}
+                {m === 'signup' ? 'Crea account' : 'Ho già un account'}
               </button>
             ))}
           </div>
@@ -169,7 +237,7 @@ export default function Auth() {
           <form onSubmit={handle} className="space-y-3">
             <input
               type="email"
-              placeholder="Email"
+              placeholder="La tua email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
@@ -185,7 +253,7 @@ export default function Auth() {
             />
             <input
               type="password"
-              placeholder="Password (min. 6 caratteri)"
+              placeholder={mode === 'signup' ? 'Scegli una password (min. 6 caratteri)' : 'Password'}
               value={pass}
               onChange={e => setPass(e.target.value)}
               required
@@ -217,44 +285,21 @@ export default function Auth() {
               disabled={loading || !configured}
               className="w-full py-4 rounded-2xl text-[15px] font-bold transition-all active:scale-[0.98] disabled:opacity-40"
               style={{
-                background: 'var(--color-foreground)',
-                color: 'var(--color-surface)',
-                boxShadow: '0 4px 20px rgba(28,25,23,0.18)',
+                background: 'transparent',
+                border: '1.5px solid var(--color-subtle)',
+                color: 'var(--color-foreground)',
                 marginTop: 4,
               }}
             >
-              {loading ? '···' : mode === 'login' ? 'Entra →' : 'Crea il profilo →'}
+              {loading ? '···' : mode === 'signup' ? 'Crea il mio profilo →' : 'Accedi →'}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="relative flex items-center gap-3 my-6">
-            <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-muted)' }}>oppure</span>
-            <div className="flex-1 h-px" style={{ background: 'var(--color-subtle)' }} />
-          </div>
-
-          {/* Demo */}
-          <button
-            type="button"
-            onClick={handleDemo}
-            className="w-full py-4 rounded-2xl text-[14px] font-semibold transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-            style={{
-              background: 'var(--color-surface-raised)',
-              color: 'var(--color-foreground)',
-              border: '1.5px solid var(--color-subtle)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <span style={{ fontSize: 16 }}>✦</span>
-            Prova il demo — senza account
-          </button>
 
         </div>
       </div>
 
-      <p className="text-center pb-8 text-[11px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-muted)', opacity: 0.4 }}>
-        Iride · Ogni giorno, un colore
+      <p className="text-center pb-8 text-[11px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-muted)', opacity: 0.35 }}>
+        Gratuito · Nessuna pubblicità · I tuoi dati sono tuoi
       </p>
     </div>
   )
