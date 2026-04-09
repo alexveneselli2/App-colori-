@@ -649,6 +649,7 @@ export default function Today() {
 
 // ─── Italian emotion lexicon for validation ───────────────────────────────────
 const EMOTION_WORDS = [
+  // Emozioni primarie
   'gioia','felice','felicità','gioioso','contento','contentezza','allegro','allegria',
   'euforia','euforico','eccitato','eccitazione','esaltato','esaltazione',
   'estasi','estatico','estasiat',
@@ -657,7 +658,7 @@ const EMOTION_WORDS = [
   'nostalgia','nostalgico','malinconico','malinconia',
   'meraviglia','meraviglioso','stupore','stuporoso','ammirazione',
   'anticipazione','attesa','speranza','speranzoso','ottimismo','ottimista',
-  'sorpresa','sorpreso','stupito','stupore',
+  'sorpresa','sorpreso','stupito',
   'gratitudine','grato','riconoscente',
   'fiducia','fiducioso','sicuro','sicurezza','calmo','calma','serenità','sereno',
   'tranquillo','tranquillità','pace','pacifico','rilassato','rilassatezza',
@@ -666,14 +667,23 @@ const EMOTION_WORDS = [
   'rabbia','arrabbiato','furioso','furibondo','ira','collera','frustrazione','frustrato',
   'paura','spaventato','ansioso','ansia','terrore','terrorizzato','preoccupato',
   'disgusto','disgustato','nausea','ribrezzo','repulsione',
-  'stanco','stanchezza','esausto','esaurimento','spossato',
   'confuso','confusione','disorientato','incerto','incertezza',
   'deluso','delusione','amarezza','amaro',
-  'imbarazzo','imbarazzato','vergogna',
   'invidia','geloso','gelosia',
   'orgoglio','orgoglioso','fiero',
   'amore','innamorato','affettuoso',
-  'bene','male','così così','neutro','normale','ok','okay',
+  // Mente attiva
+  'concentrato','concentrazione','focalizzato','focus','lucido','presente','attento',
+  'coinvolto','coinvolgimento','immerso','assorbito','impegnato','engaged','involved',
+  'curioso','curiosità','interessato','interesse',
+  'ispirato','ispirazione','creativo','creatività','illuminato',
+  // Zone d'ombra
+  'esausto','esaurimento','esaurita','stanco','stanchezza','spossato','logorato','sfinito','burnout',
+  'annoiato','noia','apatico','apatia','indifferente','vuoto','piatto','blando',
+  'imbarazzato','imbarazzo','vergogna','a disagio','disagio',
+  'sollievo','sollevato','liberato','liberazione','scarico',
+  // Generici
+  'bene','male','così così','neutro','normale','ok','okay','strano','leggero','pesante',
 ]
 
 function validateEmotion(text: string): { valid: boolean; suggestion: string | null } {
