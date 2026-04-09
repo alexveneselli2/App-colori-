@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/mood-colors-mvp-3PsnT]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
