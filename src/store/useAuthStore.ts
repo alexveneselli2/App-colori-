@@ -3,6 +3,16 @@ import { supabase } from '../lib/supabase'
 import { isDemoMode, getDemoProfile, exitDemo } from '../lib/demo'
 import type { Profile } from '../types'
 
+const PROFILE_CACHE = 'iride_profile_cache'
+
+function loadCached(): Profile | null {
+  if (isDemoMode()) return null
+  try { return JSON.parse(localStorage.getItem(PROFILE_CACHE) ?? 'null') } catch { return null }
+}
+
+// Computed once at module load — avoids calling localStorage twice
+const _initProfile = loadCached()
+
 interface AuthState {
   profile: Profile | null
   loading: boolean
@@ -13,10 +23,16 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  profile: null,
-  loading: true,
+  // If we have a cached profile, start with loading:false → no spinner on return visits
+  profile: _initProfile,
+  loading: _initProfile === null,
 
-  setProfile: (profile) => set({ profile }),
+  setProfile: (profile) => {
+    if (profile && !isDemoMode()) localStorage.setItem(PROFILE_CACHE, JSON.stringify(profile))
+    else if (!profile) localStorage.removeItem(PROFILE_CACHE)
+    set({ profile })
+  },
+
   setLoading: (loading) => set({ loading }),
 
   fetchProfile: async (userId) => {
@@ -32,6 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       .eq('id', userId)
       .single()
     if (data) {
+      localStorage.setItem(PROFILE_CACHE, JSON.stringify(data))
       set({ profile: data as Profile })
       return data as Profile
     }
@@ -39,6 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signOut: async () => {
+    localStorage.removeItem(PROFILE_CACHE)
     if (isDemoMode()) {
       exitDemo()
       set({ profile: null })

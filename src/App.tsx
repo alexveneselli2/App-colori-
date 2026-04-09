@@ -27,29 +27,32 @@ export default function App() {
       return
     }
 
-    // Fallback: force-clear loading after 8s in case Supabase hangs
-    const timeout = setTimeout(() => setLoading(false), 8000)
+    // Fallback: force-clear loading after 6s in case Supabase hangs
+    const timeout = setTimeout(() => setLoading(false), 6000)
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      try {
-        if (session?.user) {
-          setHasSession(true)
-          await fetchProfile(session.user.id)
-        }
-      } catch { /* ignore — setLoading(false) runs below */ }
+    supabase.auth.getSession().then(({ data: { session } }) => {
       clearTimeout(timeout)
+      if (session?.user) {
+        setHasSession(true)
+        // Refresh profile in background — don't await (cached value already shown)
+        fetchProfile(session.user.id).catch(() => {})
+      } else {
+        // No active session: clear any stale cached profile
+        setProfile(null)
+      }
       setLoading(false)
     }).catch(() => { clearTimeout(timeout); setLoading(false) })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (event === 'SIGNED_OUT') {
           setHasSession(false)
           setProfile(null)
           setLoading(false)
-        } else if (session?.user) {
+        } else if (event === 'SIGNED_IN' && session?.user) {
           setHasSession(true)
-          try { await fetchProfile(session.user.id) } catch { /* ignore */ }
+          // Fetch only on explicit sign-in (not on initial session restore)
+          fetchProfile(session.user.id).catch(() => {})
           setLoading(false)
         }
       }
