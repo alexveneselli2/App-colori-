@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/useAuthStore'
 import { isDemoMode, getDemoProfile } from './lib/demo'
+import Splash from './pages/Splash'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
 import Today from './pages/Today'
@@ -13,9 +14,10 @@ import Layout from './components/Layout'
 
 export default function App() {
   const { profile, loading, setLoading, fetchProfile, setProfile } = useAuthStore()
-  // Track whether we have an active Supabase session even if profile isn't created yet.
-  // When true and profile is null → redirect to onboarding (e.g. after email confirmation).
   const [hasSession, setHasSession] = useState(false)
+  const [showSplash, setShowSplash] = useState(
+    () => !localStorage.getItem('iride_intro_seen') && !isDemoMode()
+  )
 
   useEffect(() => {
     if (isDemoMode()) {
@@ -49,6 +51,10 @@ export default function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  if (showSplash) {
+    return <Splash onDone={() => setShowSplash(false)} />
+  }
 
   if (loading) {
     return (
