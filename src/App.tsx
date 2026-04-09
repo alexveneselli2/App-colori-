@@ -14,7 +14,10 @@ import Layout from './components/Layout'
 
 export default function App() {
   const { profile, loading, setLoading, fetchProfile, setProfile } = useAuthStore()
-  const [hasSession, setHasSession] = useState(false)
+  // shouldOnboard is ONLY true when a verified session exists but the user
+  // has never created a profile (i.e. just confirmed email for the first time).
+  // It is NOT set on logout, so logout always sends to /auth.
+  const [shouldOnboard, setShouldOnboard] = useState(false)
   const [showSplash, setShowSplash] = useState(
     () => !localStorage.getItem('iride_intro_seen') && !isDemoMode()
   )
@@ -33,34 +36,39 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout)
       if (session?.user) {
-        setHasSession(true)
         if (profile) {
-          // Cache hit → app already visible, refresh profile silently in background
+          // Cache hit → app already visible, refresh silently in background
           fetchProfile(session.user.id).catch(() => {})
           setLoading(false)
         } else {
-          // No cache → must await fetchProfile before clearing loading,
-          // otherwise profile=null + hasSession=true causes spurious /onboarding redirect
-          try { await fetchProfile(session.user.id) } catch { /* ignore */ }
+          // No cache → await fetchProfile so routing knows the real profile state
+          try {
+            const p = await fetchProfile(session.user.id)
+            if (!p) setShouldOnboard(true) // session exists but no profile → first-time user
+          } catch { /* ignore */ }
           setLoading(false)
         }
       } else {
-        // No active session: clear any stale cached profile
+        // No session → clear any stale cache, send to /auth
         setProfile(null)
+        setShouldOnboard(false)
         setLoading(false)
       }
     }).catch(() => { clearTimeout(timeout); setLoading(false) })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (event === 'SIGNED_OUT') {
-          setHasSession(false)
+          // Explicit logout: clear everything, go to /auth (NOT /onboarding)
+          setShouldOnboard(false)
           setProfile(null)
           setLoading(false)
         } else if (event === 'SIGNED_IN' && session?.user) {
-          setHasSession(true)
-          // Fetch only on explicit sign-in (not on initial session restore)
-          fetchProfile(session.user.id).catch(() => {})
+          // User just confirmed email or explicitly signed in
+          try {
+            const p = await fetchProfile(session.user.id)
+            if (!p) setShouldOnboard(true) // no profile → needs onboarding
+          } catch { /* ignore */ }
           setLoading(false)
         }
       }
@@ -91,8 +99,8 @@ export default function App() {
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/onboarding" element={<Onboarding />} />
-          {/* After email confirmation: session exists but no profile → go to onboarding */}
-          <Route path="*" element={<Navigate to={hasSession ? '/onboarding' : '/auth'} replace />} />
+          {/* Only go to onboarding if we know the user has a verified session but no profile */}
+          <Route path="*" element={<Navigate to={shouldOnboard ? '/onboarding' : '/auth'} replace />} />
         </Routes>
       </HashRouter>
     )

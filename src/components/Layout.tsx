@@ -23,19 +23,19 @@ export default function Layout() {
           inset: 0,
           background: `radial-gradient(ellipse 100% 50% at 50% 0%, ${lastColor}18 0%, transparent 100%)`,
           pointerEvents: 'none',
-          zIndex: 0,
+          zIndex: -1,
           transition: 'background 2s ease',
         }} />
       )}
 
       {/*
         Scrollable content area.
-        paddingBottom ensures content is ALWAYS fully visible above the nav pill —
-        no page-specific class needed; this is the single source of truth.
+        No zIndex here so this div doesn't create an isolated stacking context —
+        modals inside (ProfileSheet etc.) can then correctly overlay the Navigation.
+        paddingBottom ensures content is ALWAYS fully visible above the nav pill.
       */}
       <div style={{
         position: 'relative',
-        zIndex: 1,
         height: '100%',
         overflowY: 'auto',
         overscrollBehavior: 'contain',
