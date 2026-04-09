@@ -1,5 +1,5 @@
 # CLAUDE.md — Memoria di sessione per Iride
-> Ultima sessione: 2026-04-05
+> Ultima sessione: 2026-04-09
 
 ---
 
@@ -23,14 +23,15 @@ Il cuore del prodotto è la generazione di immagini belle e condivisibili su Ins
 | Export PNG | html-to-image (client-side, 1080px output) |
 | Deploy | GitHub Pages via GitHub Actions |
 | Routing | React Router v6 con HashRouter (per GitHub Pages) |
+| Confetti | canvas-confetti ^1.9.3 |
 
 ---
 
 ## Repository
 
 - **Repo**: `alexveneselli2/App-colori-`
-- **Branch di sviluppo**: `claude/mood-colors-mvp-3PsnT`
-- **URL GitHub Pages** (dopo setup): `https://alexveneselli2.github.io/App-colori-/`
+- **Branch principale**: `main` (unico branch attivo)
+- **URL GitHub Pages**: `https://alexveneselli2.github.io/App-colori-/`
 - **Dev locale**: `http://localhost:5173/App-colori-/`
 
 ---
@@ -39,42 +40,46 @@ Il cuore del prodotto è la generazione di immagini belle e condivisibili su Ins
 
 ```
 src/
-├── App.tsx                    # Routing principale + auth init + demo mode check
-│                              # hasSession: boolean separato da profile (per email confirm flow)
-├── index.css                  # CSS variables design system completo + animazioni
+├── App.tsx                    # Routing + auth init + demo mode + showSplash state
+│                              # hasSession separato da profile (email confirm flow)
+│                              # showSplash: true se !iride_intro_seen in localStorage
+├── index.css                  # CSS variables design system + animazioni
 ├── vite-env.d.ts              # Types per import.meta.env
 ├── lib/
-│   ├── supabase.ts            # Client Supabase
+│   ├── supabase.ts            # Client Supabase (credenziali embedded, safe con RLS)
 │   ├── dateUtils.ts           # toISO, getWeekDays, getMonthCells, getYearColumns
-│   └── demo.ts                # Modalità demo (localStorage, no Supabase)
+│   ├── demo.ts                # Modalità demo (localStorage, no Supabase)
+│   └── gracePeriod.ts         # Grace period 5 min post-salvataggio
 ├── store/
 │   ├── useAuthStore.ts        # Profile + signOut, supporta demo mode
-│   └── useMoodStore.ts        # Entries CRUD, supporta demo mode
+│   └── useMoodStore.ts        # Entries CRUD + grace period, supporta demo mode
 ├── constants/
-│   └── moods.ts               # MOOD_PALETTE (20 colori), EMPTY_CELL_LIGHT/DARK
+│   └── moods.ts               # MOOD_PALETTE (28 colori in 3 sezioni)
 ├── types/
-│   └── index.ts               # Profile, MoodEntry, ExportRecord, ViewMode,
-│                              # ExportTheme, ExportStyle, ExportFormat, ExportFont, ExportBg
+│   └── index.ts               # Tutti i tipi (vedi sezione sotto)
 ├── components/
 │   ├── Layout.tsx             # Shell con nav bottom tab + ambient mood bg
-│   ├── Navigation.tsx         # Tab bar: Oggi / Memoria / Esporta
-│   └── ExportCanvas.tsx       # Canvas export - solo stili inline (obbligatorio html-to-image)
+│   ├── Navigation.tsx         # Tab bar: Oggi / Memoria / Analisi / Esporta
+│   ├── ExportCanvas.tsx       # Canvas export — solo stili inline
+│   ├── ArtGenerator.tsx       # Canvas generativo animato (Fluido/Voronoi/Skyline)
+│   └── DeepHistory.tsx        # Timeline orizzontale scroll
 └── pages/
-    ├── Auth.tsx               # Login/signup + bottone "Prova il demo"
-    │                          # Brand orbs arc, IRIDE wordmark con gradient text
-    ├── Onboarding.tsx         # Nome + @username al primo accesso
-    │                          # try/catch per "Load Failed" (Safari iOS senza Supabase)
-    ├── Today.tsx              # Tre tab: Palette / Colore / Mix — nessuno scroll
-    │                          # blendHex(), MixPicker, ConfirmSheet, ProfileSheet
-    ├── History.tsx            # Viste settimanale/mensile/annuale
-    └── Export.tsx             # Genera PNG, opzioni: Vista/Stile/Font/Sfondo/Formato
+    ├── Splash.tsx             # Intro animata 4 slide (prima del login, una sola volta)
+    ├── Auth.tsx               # Login/signup + demo + 3 feature bullet cards
+    ├── Onboarding.tsx         # 3 step: nome → @username → città+GPS consent
+    ├── Today.tsx              # Palette (sezioni collassabili) / Colore / Mix
+    │                          # grace period, confetti, note, GPS, tags
+    ├── History.tsx            # Sett/Mese/Anno/Diario/Timeline (5 tab)
+    ├── Stats.tsx              # Statistiche emotive interattive
+    └── Export.tsx             # Accordion con 5 sezioni di opzioni
 ```
 
 ---
 
 ## Database Supabase
 
-Schema in `supabase/schema.sql`. Tabelle:
+Schema in `supabase/schema.sql`. Progetto: `hyjpdxojeildthahbxbi` (EU West).
+`mailer_autoconfirm: true` → nessuna conferma email richiesta.
 
 ### `profiles`
 | Campo | Tipo | Note |
@@ -83,6 +88,8 @@ Schema in `supabase/schema.sql`. Tabelle:
 | username | TEXT UNIQUE | |
 | display_name | TEXT | |
 | avatar_url | TEXT | nullable |
+| city | TEXT | nullable — città inserita in onboarding |
+| location_consent | BOOLEAN | consenso GPS (default false) |
 | created_at | TIMESTAMPTZ | |
 
 ### `mood_entries`
@@ -93,46 +100,62 @@ Schema in `supabase/schema.sql`. Tabelle:
 | date | DATE | |
 | color_hex | TEXT | es. `#3A86FF` |
 | mood_label | TEXT | nullable (custom colors) |
+| note | TEXT | nullable — frase libera (max 280 car.) |
 | source | TEXT | `palette` \| `custom` |
+| latitude | FLOAT | nullable |
+| longitude | FLOAT | nullable |
+| location_label | TEXT | nullable — città da reverse geocode Nominatim |
 | locked | BOOLEAN | sempre true dopo creazione |
 | UNIQUE | (user_id, date) | **regola core: una sola per giorno** |
 
 **Sicurezza**: nessuna policy UPDATE/DELETE → le entry sono immutabili a livello DB.
 
-### `exports`
-Data model pronto ma non ancora usato come storage server-side (le immagini vengono generate client-side).
-
 ---
 
-## Modalità demo (localStorage)
+## Palette colori — 28 colori in 3 sezioni (`moods.ts`)
 
-Attivata dal bottone "Prova il demo" nella schermata Auth.
-
-- `localStorage.iride_demo = 'true'` → flag
-- `localStorage.iride_demo_profile` → profilo JSON
-- `localStorage.iride_demo_entries` → array di MoodEntry in JSON
-
-Pre-popola 45 giorni di dati random per mostrare le griglie storiche piene.
-Gli store (useAuthStore, useMoodStore) rilevano `isDemoMode()` e bypassano Supabase.
-Per uscire dal demo: `exitDemo()` in `src/lib/demo.ts`.
-
----
-
-## Palette colori (20 colori scientifici, da moods.ts)
-
-Basata su Plutchik, Russell's Circumplex, Geneva Emotion Wheel, Jonauskaite et al. 2020.
-
+### Emozioni primarie (20)
 ```
-Gioia        #FFD000    Euforia      #FF6B00
-Estasi       #FF0A54    Passione     #D62839
-Tenerezza    #FF8FAB    Nostalgia    #C77DFF
-Meraviglia   #7B2FBE    Anticipazione #FB5607
-Sorpresa     #FFBE0B    Speranza     #80ED99
-Gratitudine  #52B788    Fiducia      #2D6A4F
-Calma        #00B4D8    Serenità     #90E0EF
-Solitudine   #6B7A8D    Malinconia   #3A5A8C
-Tristezza    #415A77    Rabbia       #A30015
-Paura        #1B1B2F    Disgusto     #6B6B3A
+Gioia #FFD000        Euforia #FF6B00
+Estasi #FF0A54       Passione #D62839
+Tenerezza #FF8FAB    Nostalgia #C77DFF
+Meraviglia #7B2FBE   Anticipazione #FB5607
+Sorpresa #FFBE0B     Speranza #80ED99
+Gratitudine #52B788  Fiducia #2D6A4F
+Calma #00B4D8        Serenità #90E0EF
+Solitudine #6B7A8D   Malinconia #3A5A8C
+Tristezza #415A77    Rabbia #A30015
+Paura #1B1B2F        Disgusto #6B6B3A
+```
+
+### Mente Attiva (4)
+```
+Concentrazione #0A7E8C   Curiosità #06D6A0
+Ispirazione #FF006E      Coinvolgimento #4361EE
+```
+
+### Zone d'Ombra (4)
+```
+Noia #94A3B8       Imbarazzo #FFADAD
+Esaurimento #7C5C45  Sollievo #22D3EE
+```
+
+---
+
+## Tipi principali (`types/index.ts`)
+
+```typescript
+Profile { id, username, display_name, avatar_url, city, location_consent, created_at }
+MoodEntry { id, user_id, date, color_hex, mood_label, note, source,
+            latitude, longitude, location_label, created_at, locked }
+
+ViewMode       = 'weekly' | 'monthly' | 'yearly'
+ExportStyle    = 'art' | 'labeled'
+ExportFormat   = 'feed' | 'story'
+ExportFont     = 'sans' | 'serif' | 'mono'
+ExportBg       = 'warm' | 'white' | 'dark' | 'mood'
+ExportCellShape = 'rounded' | 'square' | 'circle'
+ExportCellGlow  = 'none' | 'soft' | 'vivid'
 ```
 
 ---
@@ -140,203 +163,183 @@ Paura        #1B1B2F    Disgusto     #6B6B3A
 ## Design system (CSS variables in index.css)
 
 ```css
---color-surface:        #F2EDE5   /* warm parchment — sfondo principale */
+--color-surface:        #F2EDE5   /* warm parchment */
 --color-surface-raised: #FFFFFF   /* white cards */
---color-foreground:     #1C1917   /* testo principale */
---color-muted:          #79716B   /* testo secondario */
---color-subtle:         #E8E2D8   /* bordi, divisori, toggle bg */
+--color-foreground:     #1C1917
+--color-muted:          #79716B
+--color-subtle:         #E8E2D8
 --brand-gradient: linear-gradient(110deg, #FFD000 0%, #FF6B00 20%, #FF0A54 38%, #C77DFF 55%, #00B4D8 72%, #52B788 88%)
---shadow-xs / --shadow-sm / --shadow-md / --shadow-lg  /* scala shadow */
---nav-h:     74px
---nav-total: calc(var(--nav-h) + var(--sab))
---sat: env(safe-area-inset-top,    0px)
+--nav-h: 74px  --nav-total: calc(var(--nav-h) + var(--sab))
+--sat: env(safe-area-inset-top, 0px)
 --sab: env(safe-area-inset-bottom, 0px)
 ```
 
-**Classi utility importanti:**
-- `.card` → white card con border + shadow-sm
-- `.page-top` → padding-top: calc(var(--sat) + 52px)
-- `.animate-pop-in` → spring 0.36s cubic-bezier(0.34,1.56,0.64,1)
-- `.animate-float` → float 3s infinite
-- `.tab-content-enter` → fadeUp 0.22s per switch di tab
-- `.swatch-row-1` … `.swatch-row-4` → fadeUp staggered per palette grid
+Classi: `.card`, `.page-top`, `.animate-pop-in`, `.animate-float`,
+`.tab-content-enter`, `.swatch-row-1…4`
 
-**Overlap fix definitivo**: Il container scroll in Layout.tsx ha `paddingBottom: calc(var(--nav-total) + 36px)`. Le pagine NON usano `minHeight: 100dvh`.
+**Overlap fix**: Layout.tsx ha `paddingBottom: calc(var(--nav-total) + 36px)`.
+Le pagine NON usano `minHeight: 100dvh`.
 
 ---
 
-## Today.tsx — Architettura tab
+## Splash.tsx — Intro animata 4 slide
+
+Mostrata una sola volta (flag `iride_intro_seen` in localStorage).
+Non mostrata in demo mode.
+
+| Slide | BG | Contenuto |
+|-------|----|-----------|
+| 1 | `#05050F` | IRIDE gradient shimmer, orbs flottanti, tagline |
+| 2 | `#060610` | Cerchio colore che cicla su 6 emozioni ogni 1.4s, ambient glow |
+| 3 | `#F2EDE5` | Calendario 35 celle che si riempie con animazione calCell |
+| 4 | `#05050F` | CTA "Inizia ora →" con bottone gradient flottante |
+
+- Tap ovunque → avanza; "SALTA" in alto a destra → skip
+- Progress dots in basso (larghezza animata)
+
+---
+
+## Today.tsx — Architettura
 
 ```typescript
 type Tab = 'palette' | 'custom' | 'mix'
-const [tab, setTab] = useState<Tab>('palette')
-const [tabKey, setTabKey] = useState(0) // incrementa per re-trigger animazione
-
-const switchTab = (t: Tab) => { setTab(t); setTabKey(k => k + 1) }
 ```
 
-- **Tab bar** sempre visibile in cima
-- **Content** avvolto in `<div key={tabKey} className="tab-content-enter">` per animazione su switch
-- **Palette**: griglia 5×4 con classi `swatch-row-N` per stagger animazione
-- **Custom**: band colore 120px + input color + "Usa →"
-- **Mix**: due `MixPicker` affiancati (4 col grid), gradient bar, slider 0–100
-- `blendHex(hex1, hex2, t)` — interpolazione lineare RGB
+**Palette tab**: `PaletteWithSections` — 3 sezioni collassabili con intestazione
+(chevron ruota, dot colorato se selezione attiva in quella sezione).
+Ogni swatch: 4 colonne, aspect-ratio ~110%, label dentro in basso a sinistra,
+checkmark in alto a destra se selezionato.
 
-**Brand orbs** (`ORB_COLORS = ['#FFD000','#FF6B00','#FF0A54','#C77DFF','#00B4D8','#52B788','#2D6A4F']`):
-Usati in: Auth.tsx (arco decorativo), Today.tsx "entry saved" view, ProfileSheet.
+**Custom tab**: `CustomColorTab` — color picker + campo sentimento con validazione
+lessico italiano (150+ parole). Validazione on-blur con suggerimento palette.
 
----
+**Mix tab**: 2 `MixPicker` affiancati + gradient bar + slider 0–100 + `blendHex()`.
 
-## Export PNG
+**Grace period** (5 min post-conferma):
+- `beginGrace()` → countdown MM:SS → `commitGrace()` auto o manuale
+- `cancelGrace()` elimina entry
+- `initGrace()` in `fetchTodayEntry` ripristina al riavvio
 
-Il componente `ExportCanvas.tsx` renderizza con **stili inline** (obbligatorio per html-to-image).
+**Salvataggio**: note (280 car.) + GPS opzionale (se `location_consent`) +
+reverse geocode Nominatim → `location_label`.
 
-| Formato | CSS px | Output |
-|---------|--------|--------|
-| Feed 1:1 | 360×360 | 1080×1080 (pixelRatio 3) |
-| Story 9:16 | 360×640 | 1080×1920 (pixelRatio 3) |
+**Confetti**: canvas-confetti con colore selezionato + lighter + darker.
+**Vibrazione**: `navigator.vibrate(15)` su ogni swatch tap.
 
-**Props ExportCanvas**: `entriesMap, mode, bg, style, format, font, username, year, month`
-- **`bg: ExportBg`** = `'warm' | 'white' | 'dark' | 'mood'`
-  - `warm` → #F7F4EF, testi scuri
-  - `white` → #FFFFFF, testi scuri
-  - `dark` → #0E0D0C, testi chiari
-  - `mood` → `linear-gradient` dalle 3 entry più recenti + base #F7F4EF
-- **`font: ExportFont`** = `'sans' | 'serif'`
-  - `sans` → Inter, system-ui
-  - `serif` → Georgia, serif (titolo in corsivo)
-
-**Layout per formato**:
-- Weekly Feed: 2 righe di rettangoli verticali (4+3), giorno + data + mood in labeled mode
-- Weekly Story: 7 barre orizzontali piene larghezza
-- Monthly Feed: griglia calendario 7×N con celle quadrate
-- Monthly Story: stessa griglia ma celle proporzionalmente più grandi
-- Yearly Feed: griglia 4×3 di 12 mini-calendari mensili
-- Yearly Story: griglia 3×4 di 12 mini-calendari con celle più grandi
-- Header: IRIDE wordmark + display title ("I colori della mia settimana" ecc.) + linea
-- Footer: @username + legenda colori (solo labeled mode)
-
-Condivisione: Web Share API (Chrome Android/iOS Safari). Fallback: download PNG.
+**Vista "colore salvato"**: rettangolo 4:5 editoriale + ArtGenerator sotto.
 
 ---
 
-## Auth / Registrazione
+## History.tsx — 5 tab
 
-**Flusso con conferma email** (Supabase default):
-1. Signup → se `data.session` è null → mostra messaggio "controlla email"
-2. Utente clicca link email → Supabase redirige su GitHub Pages con token in hash
-3. `onAuthStateChange` riceve `SIGNED_IN` con sessione valida ma senza profilo
-4. `App.tsx` tiene `hasSession: boolean` separato da `profile`
-5. Con `hasSession=true` e `profile=null` → redirect automatico a `/onboarding`
-6. Onboarding crea il profilo su Supabase → `fetchProfile` → app avviata
+`type Mode = ViewMode | 'diary' | 'timeline'`
 
-**Errore "Load Failed" su Safari iOS**: Supabase lancia network error quando URL è placeholder.
-Fix: try/catch in Onboarding.tsx che rileva "failed"/"network"/"fetch"/"load" e mostra
-messaggio italiano con suggerimento di usare la demo.
+| Tab | Contenuto |
+|-----|-----------|
+| Sett. | WeeklyView |
+| Mese | MonthlyView |
+| Anno | YearlyView |
+| Diario | DiaryView — entry raggruppate per mese, note + location |
+| Timeline | DeepHistory — scroll orizzontale, auto-scroll a oggi |
 
 ---
 
-## Setup locale (da fare una volta)
+## ArtGenerator (`components/ArtGenerator.tsx`)
+
+Canvas animato con 3 modalità (props: `mode: 'fluid' | 'voronoi' | 'skyline'`):
+
+| Modalità | Tecnica | BG |
+|----------|---------|-----|
+| Fluido | Orb Lissajous 60fps | `#F2EDE5` |
+| Voronoi | Tassellazione low-res 1/6 + upscale, seed ogni 2s | `#F2EDE5` |
+| Skyline | Colonne saturazione HSL + stelle + onda sin 60fps | `#0a0820→#1a1040` |
+
+---
+
+## Export.tsx — Accordion 5 sezioni
+
+Ogni sezione è collassabile, mostra il valore corrente nell'header.
+Una sola sezione aperta alla volta (default: "Vista & Formato").
+
+| Sezione | Opzioni |
+|---------|---------|
+| Vista & Formato | weekly/monthly/yearly · feed/story |
+| Stile & Font | art/labeled · sans/serif/mono |
+| Celle & Effetti | rounded/square/circle · none/soft/vivid |
+| Sfondo | warm/white/dark/mood (con dot colorati) |
+| Firma | toggle show/hide @username |
+
+**ExportCanvas props**: `entriesMap, mode, bg, style, format, font, cellShape, cellGlow, username, year, month`
+
+---
+
+## Auth.tsx — Pagina login redesignata
+
+- Demo come CTA principale (pulsante nero in cima)
+- 3 feature bullet cards colorate (Un colore al giorno / La tua storia / Condividi)
+- Tab: "Crea account" (default) / "Ho già un account"
+- Footer: "Gratuito · Nessuna pubblicità · I tuoi dati sono tuoi"
+
+---
+
+## Onboarding.tsx — 3 step animati
+
+1. **Nome**: display name
+2. **Username**: @handle
+3. **Posizione**: città (testo libero) + toggle GPS consent
+   - Toggle → richiede `navigator.geolocation.getCurrentPosition`
+   - Salva `city` e `location_consent` in profiles
+
+Progress: 3 dot animati (dot attivo si allarga con gradient).
+
+---
+
+## Modalità demo (localStorage)
+
+- `localStorage.iride_demo = 'true'` → flag
+- `localStorage.iride_demo_profile` → profilo JSON
+- `localStorage.iride_demo_entries` → array DemoEntry JSON (45 giorni)
+- `localStorage.iride_intro_seen` → flag splash già visto
+
+`DemoEntry` ha tutti i campi di `MoodEntry` inclusi note/lat/lon/location_label/tags (nullable).
+
+---
+
+## Grace Period (`lib/gracePeriod.ts`)
+
+- Durata: 5 minuti
+- `localStorage.iride_grace_entry` → `GraceEntry { ...SaveOptions, savedAt: number }`
+- `beginGrace(userId, hex, label, source, opts)` → salva in localStorage
+- `commitGrace()` → persiste su Supabase/demo
+- `cancelGrace()` → rimuove da localStorage
+- `initGrace(userId)` → chiamato in `fetchTodayEntry`: ripristina o fa commit se scaduto
+
+---
+
+## Setup locale
 
 ```bash
-cp .env.example .env.local
-# Inserire credenziali Supabase in .env.local
 npm install
-npm run dev
-# → http://localhost:5173/App-colori-/
+npm run dev   # → http://localhost:5173/App-colori-/
+# Le credenziali Supabase sono embedded in src/lib/supabase.ts
+# Per demo: clicca "Prova subito" nella schermata Auth
 ```
-
-Per demo senza Supabase: cliccare "Prova il demo" sulla schermata di login.
 
 ---
 
-## Setup deploy GitHub Pages (da fare una volta)
+## Deploy
 
-1. Creare progetto Supabase gratuito su supabase.com
-2. Eseguire `supabase/schema.sql` nel SQL Editor di Supabase
-3. Aggiungere GitHub Secrets: `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
-4. Settings → Pages → Source → GitHub Actions
-5. Il workflow `.github/workflows/deploy.yml` parte automaticamente ad ogni push sul branch
+Push su `main` → GitHub Actions → build → push su `gh-pages`.
+Workflow: `.github/workflows/deploy.yml` (trigger: `push: branches: [main]`).
 
 ---
 
 ## Roadmap futura (non implementato)
 
-- Instagram OAuth (struttura dati già pronta, `source` in profiles)
-- Notifiche push quotidiane (promemoria rituale)
+- Navigazione settimane/mesi precedenti in History
+- Statistiche avanzate (streak, % per colore, variabilità)
+- Dark mode UI completa
+- Notifiche push quotidiane
 - Salvataggio export su Supabase Storage
-- Navigazione settimane/mesi precedenti nella vista Memoria
-- Filtro per mood label nella vista storica
-- Statistiche emotive (% per colore, streak)
-- Sfondo dinamico anche in History ed Export (attualmente solo Today + Layout)
-- Dark mode UI completa dell'app (la palette export dark esiste già)
-
----
-
-## Nuove funzionalità (sessione 2026-04-05)
-
-### Grace Period (periodo di modifica)
-- Durata: **5 minuti** dalla conferma del colore
-- Chiave localStorage: `iride_grace_entry` (struttura `GraceEntry`)
-- Flusso: `beginGrace()` → countdown in UI → `commitGrace()` (auto o manuale)
-- `cancelGrace()` elimina la voce senza salvarla
-- Al riavvio dell'app: `initGrace()` in `fetchTodayEntry` ripristina il grace o fa commit se scaduto
-- In demo mode: usa `upsertDemoEntry()` per sovrascrivere la voce del giorno
-- In Supabase mode: usa `upsert` con `onConflict: 'user_id,date'`
-- **File**: `src/lib/gracePeriod.ts`, `src/store/useMoodStore.ts`
-
-### Tags su MoodEntry
-- Campo `tags: string[] | null` in `MoodEntry` (types/index.ts) e `DemoEntry` (demo.ts)
-- UI in `ConfirmSheet`: chip-style input, max 5 tag, max 20 caratteri ciascuno
-- Aggiungi con Enter o virgola; rimuovi con × sul chip
-- I tag vengono passati a `beginGrace()` → `SaveOptions.tags`
-
-### Confetti alla conferma
-- Libreria: `canvas-confetti ^1.9.3` (+ `@types/canvas-confetti`)
-- Triggered in `handleConfirm` dopo `beginGrace()` con successo
-- Colori: hex selezionato + versione più chiara (mix con bianco 45%) + più scura (mix con nero 35%)
-- Vibrazione tattile: `navigator.vibrate(15)` al tap su ogni swatch della palette
-
-### ArtGenerator (`src/components/ArtGenerator.tsx`)
-Componente canvas con 3 modalità animate:
-
-| Modalità | Tecnica | Animazione |
-|----------|---------|-----------|
-| **Fluido** | Orb radiali in percorso Lissajous | 60fps rAF |
-| **Voronoi** | Tassellazione di Voronoi low-res (1/6) + upscale | seed si spostano ogni 2s |
-| **Skyline** | Colonne con altezza = saturazione HSL, cielo stellato | 60fps rAF con onda sinusoidale |
-
-- Sfondo Fluido/Voronoi: `#F2EDE5` (warm parchment)
-- Sfondo Skyline: gradiente scuro `#0a0820 → #1a1040`
-- Helper locali: `hexToRgb()`, `hexToHsl()`
-- Fallback palette: `BRAND_COLORS` se nessuna entry
-- Cleanup: `cancelAnimationFrame` / `clearInterval` su unmount
-- Mostrato nella vista "colore salvato" e nella vista "grace period" di Today.tsx
-
-### DeepHistory (`src/components/DeepHistory.tsx`)
-Timeline orizzontale a scorrimento:
-- Ogni giorno = striscia verticale da 44px di larghezza
-- Auto-scroll a "oggi" al mount (`scrollIntoView`)
-- "Oggi" evidenziato con ring bianco
-- Frecce ← → per scroll manuale di 220px
-- Etichette data (gg/mm) in basso su ogni striscia
-- Hover: leggera scala verticale
-- Mostra contatore "N giorni registrati"
-
-### Timeline tab in History.tsx
-- Aggiunta 5ª tab `{ key: 'timeline', label: 'Timeline' }` dopo "Diario"
-- Renderizza `<DeepHistory entries={entries} />`
-- `type Mode = ViewMode | 'diary' | 'timeline'`
-
-### Struttura file aggiornata
-```
-src/
-├── lib/
-│   └── gracePeriod.ts         # NUOVO — gestione grace period 5 min
-├── components/
-│   ├── ArtGenerator.tsx       # NUOVO — canvas generativo (Fluido/Voronoi/Skyline)
-│   └── DeepHistory.tsx        # NUOVO — timeline orizzontale scroll
-└── pages/
-    ├── Today.tsx              # AGGIORNATO — grace, confetti, tags, vibrazione
-    └── History.tsx            # AGGIORNATO — tab Timeline aggiunta
-```
+- Instagram OAuth
+- AI validation sentimenti via Supabase Edge Functions (ora: lessico locale)
