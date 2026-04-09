@@ -635,7 +635,7 @@ export default function Today() {
 
       </div>
 
-      {/* ── Sticky CTA ── always visible above nav */}
+      {/* ── Sticky CTA ── hidden in mix tab (has its own inline button) */}
       <div style={{
         position: 'sticky',
         bottom: 'calc(var(--nav-total) + 8px)',
@@ -643,6 +643,7 @@ export default function Today() {
         padding: '14px 20px 4px',
         background: `linear-gradient(to bottom, transparent 0%, var(--color-surface) 28%)`,
         pointerEvents: 'none',
+        display: tab === 'mix' ? 'none' : undefined,
       }}>
         <button
           onClick={() => setConfirming(true)}
@@ -783,7 +784,7 @@ function PaletteGroup({ label, moods, cols, isOpen, hasSelected, selectedHex, on
               >
                 <div style={{
                   width: '100%',
-                  paddingTop: '100%', // perfect square
+                  height: 72, // fixed height so all groups look the same regardless of column count
                   borderRadius: isSelected ? 18 : 14,
                   backgroundColor: mood.hex,
                   position: 'relative',
