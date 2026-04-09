@@ -30,17 +30,25 @@ export default function App() {
     // Fallback: force-clear loading after 6s in case Supabase hangs
     const timeout = setTimeout(() => setLoading(false), 6000)
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout)
       if (session?.user) {
         setHasSession(true)
-        // Refresh profile in background — don't await (cached value already shown)
-        fetchProfile(session.user.id).catch(() => {})
+        if (profile) {
+          // Cache hit → app already visible, refresh profile silently in background
+          fetchProfile(session.user.id).catch(() => {})
+          setLoading(false)
+        } else {
+          // No cache → must await fetchProfile before clearing loading,
+          // otherwise profile=null + hasSession=true causes spurious /onboarding redirect
+          try { await fetchProfile(session.user.id) } catch { /* ignore */ }
+          setLoading(false)
+        }
       } else {
         // No active session: clear any stale cached profile
         setProfile(null)
+        setLoading(false)
       }
-      setLoading(false)
     }).catch(() => { clearTimeout(timeout); setLoading(false) })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
