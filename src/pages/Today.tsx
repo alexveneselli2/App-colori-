@@ -476,8 +476,8 @@ export default function Today() {
       {bgColor && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 130% 60% at 50% 0%, ${bgColor}28 0%, transparent 65%)`,
-          transition: 'background 0.7s ease',
+          background: `radial-gradient(ellipse 160% 55% at 50% -5%, ${bgColor}40 0%, transparent 58%), radial-gradient(ellipse 90% 28% at 50% 115%, ${bgColor}18 0%, transparent 100%)`,
+          transition: 'background 0.8s ease',
         }} />
       )}
 
@@ -631,26 +631,34 @@ export default function Today() {
           )}
         </div>
 
-        {error && <p className="text-[12px] mt-3" style={{ color: '#BE123C' }}>{error}</p>}
+        {error && <p className="text-[12px] mt-2 px-1" style={{ color: '#BE123C' }}>{error}</p>}
 
-        {/* ── CTA ── */}
-        <div className="mt-5">
-          <button
-            onClick={() => setConfirming(true)}
-            disabled={!selected}
-            className="w-full py-4 rounded-2xl text-[15px] font-extrabold transition-all active:scale-[0.98] disabled:opacity-20"
-            style={{
-              background: selected?.hex ?? 'var(--color-foreground)',
-              color: selected ? (needsLightText(selected.hex) ? '#FFFFFF' : '#1C1917') : '#FFFFFF',
-              boxShadow: selected ? `0 10px 32px ${selected.hex}60` : '0 4px 14px rgba(28,25,23,0.20)',
-              transition: 'background 0.35s ease, box-shadow 0.35s ease',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {selected?.label ? `Oggi mi sento ${selected.label}` : 'Scegli un colore'}
-          </button>
-        </div>
+      </div>
 
+      {/* ── Sticky CTA ── always visible above nav */}
+      <div style={{
+        position: 'sticky',
+        bottom: 'calc(var(--nav-total) + 8px)',
+        zIndex: 20,
+        padding: '14px 20px 4px',
+        background: `linear-gradient(to bottom, transparent 0%, var(--color-surface) 28%)`,
+        pointerEvents: 'none',
+      }}>
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={!selected}
+          className="w-full py-4 rounded-2xl text-[15px] font-extrabold transition-all active:scale-[0.98] disabled:opacity-25"
+          style={{
+            pointerEvents: 'auto',
+            background: selected?.hex ?? 'var(--color-foreground)',
+            color: selected ? (needsLightText(selected.hex) ? '#FFFFFF' : '#1C1917') : 'rgba(255,255,255,0.6)',
+            boxShadow: selected ? `0 12px 36px ${selected.hex}65, 0 4px 12px ${selected.hex}30` : '0 4px 14px rgba(28,25,23,0.18)',
+            transition: 'background 0.35s ease, box-shadow 0.35s ease, color 0.35s ease',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          {selected?.label ? `Oggi mi sento ${selected.label} →` : 'Scegli un colore'}
+        </button>
       </div>
 
       {/* ── Confirmation sheet ── */}
@@ -691,42 +699,79 @@ function PaletteGroup({ label, moods, cols, isOpen, hasSelected, selectedHex, on
   isOpen: boolean; hasSelected: boolean; selectedHex: string | undefined
   onToggle: () => void; onSelect: (m: MoodColor) => void
 }) {
+  // Representative color = middle of the group
+  const accent = moods[Math.floor(moods.length / 2)].hex
+
   return (
-    <div>
+    <div style={{
+      borderRadius: 20,
+      border: `1.5px solid ${accent}${isOpen ? '38' : '22'}`,
+      background: isOpen ? `${accent}12` : `${accent}07`,
+      transition: 'border-color 0.22s ease, background 0.22s ease',
+      overflow: 'hidden',
+    }}>
+      {/* ── Group header ── */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between mb-2 active:opacity-70 transition-opacity"
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: isOpen ? '12px 14px 10px' : '11px 14px',
+          background: 'none', border: 'none', cursor: 'pointer',
+          transition: 'padding 0.2s ease',
+        }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="text-[11px] font-bold uppercase tracking-[0.13em]"
-            style={{ color: hasSelected ? 'var(--color-foreground)' : 'var(--color-muted)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          {/* Color spectrum strip */}
+          <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+            {moods.map(m => (
+              <div key={m.hex} style={{
+                width: m.hex === selectedHex ? 14 : 10,
+                height: m.hex === selectedHex ? 14 : 10,
+                borderRadius: 5,
+                backgroundColor: m.hex,
+                flexShrink: 0,
+                transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                boxShadow: m.hex === selectedHex
+                  ? `0 0 0 2px var(--color-surface-raised), 0 0 0 3.5px ${m.hex}, 0 3px 8px ${m.hex}70`
+                  : `0 1px 4px ${m.hex}55`,
+              }} />
+            ))}
+          </div>
+          {/* Label */}
+          <span style={{
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase',
+            color: hasSelected ? 'var(--color-foreground)' : 'var(--color-muted)',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            transition: 'color 0.2s ease',
+          }}>
             {label}
           </span>
-          {hasSelected && (
-            <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: selectedHex, boxShadow: `0 0 6px ${selectedHex}` }} />
-          )}
-          {/* Mini circles when collapsed */}
-          {!isOpen && (
-            <div style={{ display: 'flex', gap: 3, marginLeft: 2 }}>
-              {moods.map(m => (
-                <div key={m.hex} style={{
-                  width: 10, height: 10, borderRadius: '50%', backgroundColor: m.hex,
-                  border: m.hex === selectedHex ? `1.5px solid var(--color-foreground)` : undefined,
-                  flexShrink: 0,
-                }} />
-              ))}
-            </div>
+          {hasSelected && !isOpen && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
+              background: `${selectedHex}25`, color: selectedHex,
+              border: `1px solid ${selectedHex}40`,
+            }}>
+              ✓
+            </span>
           )}
         </div>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-          style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s ease', color: 'var(--color-muted)', flexShrink: 0 }}>
-          <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{
+          transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+          transition: 'transform 0.22s ease',
+          color: hasSelected ? accent : 'var(--color-muted)',
+          flexShrink: 0,
+        }}>
+          <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
+      {/* ── Swatch grid ── */}
       {isOpen && (
-        <div className="tab-content-enter" style={{ display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)`, gap: 8 }}>
+        <div className="tab-content-enter" style={{
+          display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: 7, padding: '2px 10px 12px',
+        }}>
           {moods.map((mood) => {
             const isSelected = selectedHex === mood.hex
             const light = needsLightText(mood.hex)
@@ -734,30 +779,43 @@ function PaletteGroup({ label, moods, cols, isOpen, hasSelected, selectedHex, on
               <button
                 key={mood.hex}
                 onClick={() => { if (navigator.vibrate) navigator.vibrate(15); onSelect(mood) }}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: 16 }}
               >
                 <div style={{
-                  width: '100%', paddingTop: '110%', borderRadius: isSelected ? 20 : 15,
-                  backgroundColor: mood.hex, position: 'relative',
+                  width: '100%',
+                  paddingTop: '100%', // perfect square
+                  borderRadius: isSelected ? 18 : 14,
+                  backgroundColor: mood.hex,
+                  position: 'relative',
                   transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
                   transform: isSelected ? 'scale(1.07)' : 'scale(1)',
                   boxShadow: isSelected
-                    ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 8px 24px ${mood.hex}70`
-                    : `0 3px 10px ${mood.hex}45`,
+                    ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 28px ${mood.hex}70`
+                    : `0 2px 8px ${mood.hex}50`,
                 }}>
-                  <div style={{ position: 'absolute', bottom: 6, left: 5, right: 5, pointerEvents: 'none' }}>
-                    <p style={{ fontSize: 8.5, fontWeight: isSelected ? 800 : 600,
-                      color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
-                      lineHeight: 1.1, fontFamily: 'Inter, system-ui, sans-serif' }}>
+                  {/* Label */}
+                  <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5, pointerEvents: 'none' }}>
+                    <p style={{
+                      fontSize: 8, fontWeight: isSelected ? 800 : 700,
+                      color: light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.72)',
+                      lineHeight: 1.15, fontFamily: 'Inter, system-ui, sans-serif',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
                       {mood.label}
                     </p>
                   </div>
+                  {/* Check badge */}
                   {isSelected && (
-                    <div style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: '50%',
-                      background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="9" height="7" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4l3 3 5-6" stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                    <div style={{
+                      position: 'absolute', top: 5, right: 5,
+                      width: 15, height: 15, borderRadius: '50%',
+                      background: light ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l3 3 5-6"
+                          stroke={light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.80)'}
+                          strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
                   )}
@@ -780,7 +838,13 @@ function PaletteWithSections({ selected, onSelect }: {
     'Mente Attiva': false, "Zone d'Ombra": false,
   })
 
-  const toggle = (label: string) => setOpen(o => ({ ...o, [label]: !o[label] }))
+  // One-at-a-time: opening one group closes all others
+  const toggle = (label: string) => setOpen(o => {
+    const wasOpen = o[label]
+    const next: Record<string, boolean> = {}
+    Object.keys(o).forEach(k => { next[k] = k === label ? !wasOpen : false })
+    return next
+  })
 
   const handleSelect = (m: MoodColor, groupLabel: string) => {
     onSelect(m)
@@ -979,8 +1043,8 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
-      style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
       onClick={onCancel}
     >
       <div
@@ -1138,13 +1202,13 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
-      style={{ background: 'rgba(28,25,23,0.50)', backdropFilter: 'blur(16px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.50)', backdropFilter: 'blur(16px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
       onClick={onClose}
     >
       <div
         className="w-full max-w-md mx-4 rounded-3xl p-6 space-y-4 animate-slide-up"
-        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)' }}
+        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: '85dvh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
@@ -1254,8 +1318,8 @@ function EditGraceSheet({ grace, onSave, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
-      style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+    <div className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
       onClick={onClose}>
       <div className="w-full max-w-md mx-4 rounded-3xl overflow-hidden animate-slide-up"
         style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: '85dvh', overflowY: 'auto' }}
