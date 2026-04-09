@@ -1,0 +1,19 @@
+{
+  "name": "Iride",
+  "short_name": "Iride",
+  "description": "Il tuo diario cromatico quotidiano",
+  "start_url": "/App-colori-/",
+  "scope": "/App-colori-/",
+  "display": "standalone",
+  "background_color": "#F2EDE5",
+  "theme_color": "#F2EDE5",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "/App-colori-/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

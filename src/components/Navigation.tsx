@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useMoodStore } from '../store/useMoodStore'
 
 const tabs = [
   {
@@ -9,6 +11,7 @@ const tabs = [
         <circle cx="10" cy="10" r="6"
           fill={active ? 'currentColor' : 'none'}
           stroke="currentColor" strokeWidth="1.6"/>
+        {active && <circle cx="10" cy="10" r="2.5" fill="var(--color-surface-raised)" fillOpacity="0.7"/>}
       </svg>
     ),
   },
@@ -17,18 +20,12 @@ const tabs = [
     label: 'Memoria',
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="2" y="2" width="7" height="7" rx="1.5"
-          fill={active ? 'currentColor' : 'none'}
-          stroke="currentColor" strokeWidth="1.6"/>
-        <rect x="11" y="2" width="7" height="7" rx="1.5"
-          fill={active ? 'currentColor' : 'none'}
-          stroke="currentColor" strokeWidth="1.6"/>
-        <rect x="2" y="11" width="7" height="7" rx="1.5"
-          fill={active ? 'currentColor' : 'none'}
-          stroke="currentColor" strokeWidth="1.6"/>
-        <rect x="11" y="11" width="7" height="7" rx="1.5"
-          fill={active ? 'currentColor' : 'none'}
-          stroke="currentColor" strokeWidth="1.6"/>
+        <rect x="2" y="2"   width="6" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="10" y="2"  width="8" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="2" y="8"   width="8" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="12" y="8"  width="6" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="2" y="14"  width="5" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="9" y="14"  width="9" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
       </svg>
     ),
   },
@@ -49,15 +46,29 @@ const tabs = [
     label: 'Esporta',
     icon: (_active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M10 3v9M7 10l3 3 3-3M4 16h12"
-          stroke="currentColor" strokeWidth="1.6"
-          strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M13 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M17 8H8a5 5 0 000 10h1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
       </svg>
     ),
   },
 ]
 
 export default function Navigation() {
+  const { todayEntry, entries } = useMoodStore()
+  const lastColor = entries[0]?.color_hex ?? null
+  const [tappedTab, setTappedTab] = useState<string | null>(null)
+
+  // Reminder badge: show on "Oggi" if no entry and past noon
+  const showBadge = !todayEntry && new Date().getHours() >= 12
+
+  // Clear bounce after animation
+  useEffect(() => {
+    if (tappedTab) {
+      const t = setTimeout(() => setTappedTab(null), 300)
+      return () => clearTimeout(t)
+    }
+  }, [tappedTab])
+
   return (
     <nav style={{
       position: 'fixed',
@@ -89,6 +100,7 @@ export default function Navigation() {
             to={tab.to}
             end={tab.to === '/'}
             style={{ flex: 1, textDecoration: 'none' }}
+            onClick={() => setTappedTab(tab.to)}
           >
             {({ isActive }) => (
               <div style={{
@@ -102,8 +114,40 @@ export default function Navigation() {
                 background: isActive ? 'rgba(255,255,255,0.13)' : 'transparent',
                 transition: 'background 0.18s',
                 color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.40)',
+                position: 'relative',
+                animation: tappedTab === tab.to ? 'navBounce 0.28s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
               }}>
-                {tab.icon(isActive)}
+                {/* Colored dot above active icon */}
+                {isActive && lastColor && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 5,
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    backgroundColor: lastColor,
+                    boxShadow: `0 0 6px ${lastColor}`,
+                    transition: 'background-color 0.4s ease',
+                  }} />
+                )}
+
+                {/* Reminder badge on Oggi */}
+                {tab.to === '/' && showBadge && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: '20%',
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    backgroundColor: '#FF0A54',
+                    animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
+                  }} />
+                )}
+
+                <div style={{ marginTop: isActive && lastColor ? 8 : 0 }}>
+                  {tab.icon(isActive)}
+                </div>
                 <span style={{
                   fontSize: 8,
                   fontWeight: 500,
@@ -118,6 +162,15 @@ export default function Navigation() {
           </NavLink>
         ))}
       </div>
+
+      <style>{`
+        @keyframes navBounce {
+          0%   { transform: scale(1); }
+          30%  { transform: scale(0.85); }
+          70%  { transform: scale(1.08); }
+          100% { transform: scale(1); }
+        }
+      `}</style>
     </nav>
   )
 }

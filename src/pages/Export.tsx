@@ -96,7 +96,8 @@ function ToggleGroup({
 export default function Export() {
   const { profile } = useAuthStore()
   const { entries, fetchEntries } = useMoodStore()
-  const canvasRef = useRef<HTMLDivElement>(null)
+  const canvasRef   = useRef<HTMLDivElement>(null)
+  const touchStartY = useRef(0)
 
   const [loaded,       setLoaded]       = useState(false)
   const [mode,         setMode]         = useState<ViewMode>('monthly')
@@ -110,6 +111,7 @@ export default function Export() {
   const [openSection,  setOpenSection]  = useState<string | null>('vista')
   const [exporting,    setExporting]    = useState(false)
   const [shared,       setShared]       = useState(false)
+  const [previewUrl,   setPreviewUrl]   = useState<string | null>(null)
 
   const today = new Date()
   const year  = today.getFullYear()
@@ -150,6 +152,13 @@ export default function Export() {
     setExporting(false)
   }
 
+  const handlePreview = async () => {
+    setExporting(true)
+    const url = await captureImage()
+    setExporting(false)
+    if (url) setPreviewUrl(url)
+  }
+
   const handleShare = async () => {
     setExporting(true)
     const dataUrl = await captureImage()
@@ -180,6 +189,7 @@ export default function Export() {
   const glowLabel:  Record<ExportCellGlow, string>  = { none: 'Nessuno', soft: 'Soft', vivid: 'Vivid' }
 
   return (
+    <>
     <div className="page-top flex flex-col">
 
       {/* Header */}
@@ -193,7 +203,7 @@ export default function Export() {
       </div>
 
       {/* Canvas preview */}
-      <div className="px-5 mb-5 flex justify-center">
+      <div className="px-5 mb-3 flex flex-col items-center gap-3">
         <div style={{
           width: CANVAS_W * scale, height: previewH,
           borderRadius: 16, overflow: 'hidden',
@@ -210,6 +220,18 @@ export default function Export() {
             />
           </div>
         </div>
+        <button
+          onClick={handlePreview}
+          disabled={exporting}
+          className="flex items-center gap-2 py-2 px-4 rounded-2xl text-[13px] font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
+          style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)', background: 'var(--color-surface-raised)' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <ellipse cx="7" cy="7" rx="6" ry="4" stroke="currentColor" strokeWidth="1.4"/>
+            <circle cx="7" cy="7" r="2" fill="currentColor"/>
+          </svg>
+          {exporting ? '···' : 'Anteprima'}
+        </button>
       </div>
 
       {/* Accordion controls */}
@@ -389,5 +411,73 @@ export default function Export() {
       </div>
 
     </div>
+
+      {/* Full-screen preview overlay */}
+
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center animate-fade-in"
+          style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(20px)' }}
+          onClick={() => setPreviewUrl(null)}
+          onTouchStart={e => { touchStartY.current = e.touches[0].clientY }}
+          onTouchMove={e => {
+            if (e.touches[0].clientY - touchStartY.current > 100) setPreviewUrl(null)
+          }}
+        >
+          <button
+            onClick={() => setPreviewUrl(null)}
+            style={{
+              position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 20px)', right: 20,
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.15)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', cursor: 'pointer', zIndex: 10,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
+
+          <img
+            src={previewUrl}
+            alt="Anteprima poster"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '92%', maxHeight: '72dvh', objectFit: 'contain',
+              borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+              animation: 'previewPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}
+          />
+
+          <div className="flex gap-3 mt-6" onClick={e => e.stopPropagation()}>
+            <button onClick={handleShare} disabled={exporting}
+              className="py-3 px-6 rounded-2xl text-[14px] font-semibold active:scale-[0.97] disabled:opacity-50 flex items-center gap-2"
+              style={{ background: '#fff', color: '#1C1917' }}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M11 1l4 4-4 4M15 5H5a4 4 0 000 8h1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Condividi
+            </button>
+            <button onClick={handleDownload} disabled={exporting}
+              className="py-3 px-6 rounded-2xl text-[14px] font-semibold active:scale-[0.97] disabled:opacity-50 flex items-center gap-2"
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1v9M5 8l3 3 3-3M1 13h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Scarica
+            </button>
+          </div>
+          <p style={{ marginTop: 12, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Scorri giù per chiudere</p>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes previewPop {
+          from { opacity: 0; transform: scale(0.82); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
+    </>
   )
 }
