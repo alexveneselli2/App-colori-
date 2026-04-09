@@ -480,60 +480,7 @@ export default function Today() {
 
           {/* PALETTE TAB */}
           {tab === 'palette' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-              {MOOD_PALETTE.map((mood, i) => {
-                const row = Math.min(Math.floor(i / 4) + 1, 4)
-                const isSelected = selected?.hex === mood.hex
-                const light = needsLightText(mood.hex)
-                return (
-                  <button
-                    key={mood.hex}
-                    onClick={() => handleSelectMood(mood)}
-                    className={`swatch-row-${row}`}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                  >
-                    <div style={{
-                      width: '100%', paddingTop: '110%', borderRadius: isSelected ? 22 : 18,
-                      backgroundColor: mood.hex, position: 'relative',
-                      transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                      transform: isSelected ? 'scale(1.07)' : 'scale(1)',
-                      boxShadow: isSelected
-                        ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 30px ${mood.hex}70`
-                        : `0 4px 14px ${mood.hex}45`,
-                    }}>
-                      {/* Label inside swatch */}
-                      <div style={{
-                        position: 'absolute', bottom: 8, left: 8, right: 8,
-                        pointerEvents: 'none',
-                      }}>
-                        <p style={{
-                          fontSize: 9.5,
-                          fontWeight: isSelected ? 800 : 600,
-                          color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
-                          lineHeight: 1.1,
-                          fontFamily: 'Inter, system-ui, sans-serif',
-                        }}>
-                          {mood.label}
-                        </p>
-                      </div>
-                      {/* Selected checkmark */}
-                      {isSelected && (
-                        <div style={{
-                          position: 'absolute', top: 8, right: 8,
-                          width: 18, height: 18, borderRadius: '50%',
-                          background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                            <path d="M1 4l3 3 5-6" stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+            <PaletteWithSections selected={selected} onSelect={handleSelectMood} />
           )}
 
           {/* CUSTOM COLOR TAB */}
@@ -699,6 +646,128 @@ function validateEmotion(text: string): { valid: boolean; suggestion: string | n
   })?.label ?? null
 
   return { valid: false, suggestion }
+}
+
+// ─── Palette grouped by section ──────────────────────────────────────────────
+const PALETTE_SECTIONS = [
+  { label: 'Emozioni primarie', range: [0, 20]  as [number,number] },
+  { label: 'Mente attiva',      range: [20, 24] as [number,number] },
+  { label: 'Zone d\'ombra',     range: [24, 28] as [number,number] },
+]
+
+function PaletteWithSections({ selected, onSelect }: {
+  selected: Selection | null
+  onSelect: (m: MoodColor) => void
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>({
+    'Emozioni primarie': true,
+    'Mente attiva':      true,
+    'Zone d\'ombra':     true,
+  })
+
+  const toggle = (label: string) =>
+    setOpen(o => ({ ...o, [label]: !o[label] }))
+
+  return (
+    <div className="space-y-3">
+      {PALETTE_SECTIONS.map(({ label, range }) => {
+        const moods = MOOD_PALETTE.slice(range[0], range[1])
+        const isOpen = open[label]
+        const hasSelected = moods.some(m => m.hex === selected?.hex)
+        return (
+          <div key={label}>
+            {/* Section header */}
+            <button
+              onClick={() => toggle(label)}
+              className="w-full flex items-center justify-between mb-2.5 active:opacity-70 transition-opacity"
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-[0.13em]"
+                  style={{ color: hasSelected ? 'var(--color-foreground)' : 'var(--color-muted)' }}>
+                  {label}
+                </span>
+                {hasSelected && (
+                  <div style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    backgroundColor: selected!.hex,
+                    boxShadow: `0 0 6px ${selected!.hex}`,
+                  }} />
+                )}
+              </div>
+              <svg
+                width="14" height="14" viewBox="0 0 14 14" fill="none"
+                style={{
+                  transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                  transition: 'transform 0.2s ease',
+                  color: 'var(--color-muted)',
+                }}
+              >
+                <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.6"
+                  strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* Swatches */}
+            {isOpen && (
+              <div
+                className="tab-content-enter"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}
+              >
+                {moods.map((mood, i) => {
+                  const row = Math.min(Math.floor(i / 4) + 1, 4)
+                  const isSelected = selected?.hex === mood.hex
+                  const light = needsLightText(mood.hex)
+                  return (
+                    <button
+                      key={mood.hex}
+                      onClick={() => onSelect(mood)}
+                      className={`swatch-row-${row}`}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                    >
+                      <div style={{
+                        width: '100%', paddingTop: '110%', borderRadius: isSelected ? 22 : 18,
+                        backgroundColor: mood.hex, position: 'relative',
+                        transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                        transform: isSelected ? 'scale(1.07)' : 'scale(1)',
+                        boxShadow: isSelected
+                          ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 30px ${mood.hex}70`
+                          : `0 4px 14px ${mood.hex}45`,
+                      }}>
+                        <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, pointerEvents: 'none' }}>
+                          <p style={{
+                            fontSize: 9.5, fontWeight: isSelected ? 800 : 600,
+                            color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
+                            lineHeight: 1.1, fontFamily: 'Inter, system-ui, sans-serif',
+                          }}>
+                            {mood.label}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div style={{
+                            position: 'absolute', top: 8, right: 8,
+                            width: 18, height: 18, borderRadius: '50%',
+                            background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4l3 3 5-6"
+                                stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'}
+                                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ─── Custom Color Tab ─────────────────────────────────────────────────────────
