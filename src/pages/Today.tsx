@@ -7,7 +7,6 @@ import { MOOD_PALETTE } from '../constants/moods'
 import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
 import type { GraceEntry } from '../lib/gracePeriod'
-import ArtGenerator from '../components/ArtGenerator'
 import type { MoodColor } from '../constants/moods'
 
 const DAY_NAMES = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
@@ -279,35 +278,6 @@ export default function Today() {
             <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>Torna domani per il prossimo.</p>
           </div>
 
-          {/* Mini week strip */}
-          <div className="w-full max-w-xs animate-fade-up" style={{ animationDelay: '0.15s' }}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.13em] mb-2 text-center" style={{ color: 'var(--color-muted)' }}>La tua settimana</p>
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-              {getWeekDays(today).map((day, i) => {
-                const dayStr = toISO(day)
-                const dayEntry = entries.find(e => e.date === dayStr)
-                const isToday = dayStr === toISO(today)
-                return (
-                  <div key={dayStr} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                    <p style={{ fontSize: 8, fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase' }}>{DAY_INITIAL[i]}</p>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: '50%',
-                      backgroundColor: dayEntry?.color_hex ?? 'var(--color-subtle)',
-                      border: isToday ? `2px solid ${todayEntry.color_hex}` : '2px solid transparent',
-                      boxShadow: dayEntry ? `0 3px 10px ${dayEntry.color_hex}50` : undefined,
-                      flexShrink: 0,
-                    }} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Art Generator */}
-          <div className="animate-fade-up" style={{ width: '100%', maxWidth: 400, animationDelay: '0.2s' } as CSSProperties}>
-            <ArtGenerator entries={entries} height={220} />
-          </div>
-
           {/* Share button */}
           {navigator.share && (
             <button
@@ -450,10 +420,6 @@ export default function Today() {
             </div>
           </div>
 
-          {/* Art Generator */}
-          <div style={{ width: '100%', maxWidth: 400 }}>
-            <ArtGenerator entries={entries} height={220} />
-          </div>
         </div>
 
         {showEditGrace && (

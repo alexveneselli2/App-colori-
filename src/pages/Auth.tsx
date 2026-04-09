@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
 import { enterDemo, getDemoProfile } from '../lib/demo'
+import { useT } from '../lib/i18n'
 
 const BRAND = 'linear-gradient(110deg, #FFD000 0%, #FF6B00 20%, #FF0A54 38%, #C77DFF 55%, #00B4D8 72%, #52B788 88%)'
 
@@ -11,6 +12,7 @@ const DOT_COLORS = ['#FFD000', '#FF6B00', '#FF0A54', '#C77DFF', '#00B4D8', '#52B
 export default function Auth() {
   const navigate = useNavigate()
   const { fetchProfile, setProfile, setLoading: setGlobalLoading } = useAuthStore()
+  const t = useT()
   const [mode, setMode]       = useState<'login' | 'signup'>('login')
   const [email, setEmail]     = useState('')
   const [pass, setPass]       = useState('')
@@ -28,13 +30,13 @@ export default function Auth() {
   }
 
   const translateError = (msg: string): string => {
-    if (msg.includes('Invalid login credentials'))  return 'Email o password non corretti.'
-    if (msg.includes('Email not confirmed'))         return 'Devi confermare la tua email. Controlla la casella di posta.'
-    if (msg.includes('User already registered'))     return 'Esiste già un account con questa email. Prova ad accedere.'
-    if (msg.includes('Password should be at least')) return 'La password deve essere di almeno 6 caratteri.'
-    if (msg.includes('Unable to validate email'))    return 'Formato email non valido.'
+    if (msg.includes('Invalid login credentials'))  return t.auth_err_creds
+    if (msg.includes('Email not confirmed'))         return t.auth_err_confirm
+    if (msg.includes('User already registered'))     return t.auth_err_exists
+    if (msg.includes('Password should be at least')) return t.auth_err_short
+    if (msg.includes('Unable to validate email'))    return t.auth_err_email
     if (/load failed|network|fetch|failed to fetch/i.test(msg))
-      return 'Connessione non riuscita. Verifica le credenziali in .env.local oppure usa la demo.'
+      return t.auth_err_net
     return msg
   }
 
@@ -65,7 +67,7 @@ export default function Auth() {
           if (data.session) {
             navigate('/onboarding')
           } else {
-            setInfo('Quasi fatto! Controlla la tua email e clicca il link di conferma. Poi torna qui e accedi.')
+            setInfo(t.auth_info_confirm)
             setMode('login')
             setPass('')
           }
@@ -188,13 +190,15 @@ export default function Auth() {
             letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.25,
             animation: 'authIn 0.6s 0.1s cubic-bezier(0.22,1,0.36,1) both',
           }}>
-            Il tuo diario cromatico
+            {t.auth_tagline}
           </p>
           <p style={{
             fontSize: 14, color: 'rgba(255,255,255,0.42)', lineHeight: 1.65, marginBottom: 10,
             animation: 'authIn 0.6s 0.18s cubic-bezier(0.22,1,0.36,1) both',
           }}>
-            Ogni giorno scegli un colore che racconta<br />come ti senti. La tua storia in un'immagine.
+            {t.auth_desc.split('\n').map((line, i) => (
+              <span key={i}>{line}{i === 0 ? <br /> : null}</span>
+            ))}
           </p>
 
           {/* Color dots */}
@@ -229,10 +233,10 @@ export default function Auth() {
                 background: 'rgba(251,197,7,0.12)', border: '1px solid rgba(251,197,7,0.25)',
               }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: '#FCD34D', marginBottom: 4 }}>
-                  Supabase non configurato
+                  {t.auth_supa_title}
                 </p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>
-                  Aggiungi le credenziali nei GitHub Secrets per abilitare l'autenticazione.
+                  {t.auth_supa_desc}
                 </p>
               </div>
             )}
@@ -256,7 +260,7 @@ export default function Auth() {
                     opacity: !configured ? 0.5 : 1,
                   }}
                 >
-                  {m === 'login' ? 'Accedi' : 'Registrati'}
+                  {m === 'login' ? t.auth_login : t.auth_signup}
                 </button>
               ))}
             </div>
@@ -266,7 +270,7 @@ export default function Auth() {
               <input
                 className="auth-input"
                 type="email"
-                placeholder="Email"
+                placeholder={t.auth_email}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -276,7 +280,7 @@ export default function Auth() {
               <input
                 className="auth-input"
                 type="password"
-                placeholder="Password (min. 6 caratteri)"
+                placeholder={t.auth_pass}
                 value={pass}
                 onChange={e => setPass(e.target.value)}
                 required
@@ -317,7 +321,7 @@ export default function Auth() {
                   marginTop: 4,
                 }}
               >
-                {loading ? '···' : mode === 'login' ? 'Entra →' : 'Crea il profilo →'}
+                {loading ? '···' : mode === 'login' ? t.auth_enter : t.auth_create}
               </button>
             </form>
           </div>
@@ -348,7 +352,7 @@ export default function Auth() {
             }}
           >
             <span style={{ fontSize: 15 }}>✦</span>
-            Prova il demo — senza account
+            {t.auth_demo}
           </button>
 
           <p style={{
@@ -357,7 +361,7 @@ export default function Auth() {
             fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif',
             animation: 'authIn 0.6s 0.58s cubic-bezier(0.22,1,0.36,1) both',
           }}>
-            IRIDE · OGNI GIORNO, UN COLORE
+            {t.auth_footer}
           </p>
 
         </div>

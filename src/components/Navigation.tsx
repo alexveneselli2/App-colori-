@@ -1,71 +1,71 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useMoodStore } from '../store/useMoodStore'
-
-const tabs = [
-  {
-    to: '/',
-    label: 'Oggi',
-    icon: (active: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="6"
-          fill={active ? 'currentColor' : 'none'}
-          stroke="currentColor" strokeWidth="1.6"/>
-        {active && <circle cx="10" cy="10" r="2.5" fill="var(--color-surface-raised)" fillOpacity="0.7"/>}
-      </svg>
-    ),
-  },
-  {
-    to: '/history',
-    label: 'Memoria',
-    icon: (active: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="2" y="2"   width="6" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
-        <rect x="10" y="2"  width="8" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
-        <rect x="2" y="8"   width="8" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
-        <rect x="12" y="8"  width="6" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
-        <rect x="2" y="14"  width="5" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
-        <rect x="9" y="14"  width="9" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
-      </svg>
-    ),
-  },
-  {
-    to: '/stats',
-    label: 'Analisi',
-    icon: (active: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 15 L3 10 L7 10 L7 15 M8.5 15 L8.5 6 L12.5 6 L12.5 15 M14 15 L14 12 L18 12 L18 15"
-          fill={active ? 'currentColor' : 'none'}
-          stroke="currentColor" strokeWidth="1.6"
-          strokeLinejoin="round"/>
-      </svg>
-    ),
-  },
-  {
-    to: '/export',
-    label: 'Esporta',
-    icon: (_active: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M13 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M17 8H8a5 5 0 000 10h1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-      </svg>
-    ),
-  },
-]
+import { useT } from '../lib/i18n'
 
 export default function Navigation() {
+  const t = useT()
   const { todayEntry, entries } = useMoodStore()
   const lastColor = entries[0]?.color_hex ?? null
   const [tappedTab, setTappedTab] = useState<string | null>(null)
 
-  // Reminder badge: show on "Oggi" if no entry and past noon
+  const tabs = [
+    {
+      to: '/',
+      label: t.nav_today,
+      icon: (active: boolean) => (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="6"
+            fill={active ? 'currentColor' : 'none'}
+            stroke="currentColor" strokeWidth="1.6"/>
+          {active && <circle cx="10" cy="10" r="2.5" fill="var(--color-surface-raised)" fillOpacity="0.7"/>}
+        </svg>
+      ),
+    },
+    {
+      to: '/history',
+      label: t.nav_memory,
+      icon: (active: boolean) => (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2"   width="6" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+          <rect x="10" y="2"  width="8" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+          <rect x="2" y="8"   width="8" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+          <rect x="12" y="8"  width="6" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+          <rect x="2" y="14"  width="5" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+          <rect x="9" y="14"  width="9" height="4" rx="1" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"/>
+        </svg>
+      ),
+    },
+    {
+      to: '/stats',
+      label: t.nav_stats,
+      icon: (active: boolean) => (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M3 15 L3 10 L7 10 L7 15 M8.5 15 L8.5 6 L12.5 6 L12.5 15 M14 15 L14 12 L18 12 L18 15"
+            fill={active ? 'currentColor' : 'none'}
+            stroke="currentColor" strokeWidth="1.6"
+            strokeLinejoin="round"/>
+        </svg>
+      ),
+    },
+    {
+      to: '/export',
+      label: t.nav_export,
+      icon: (_active: boolean) => (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M13 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M17 8H8a5 5 0 000 10h1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        </svg>
+      ),
+    },
+  ]
+
   const showBadge = !todayEntry && new Date().getHours() >= 12
 
-  // Clear bounce after animation
   useEffect(() => {
     if (tappedTab) {
-      const t = setTimeout(() => setTappedTab(null), 300)
-      return () => clearTimeout(t)
+      const timer = setTimeout(() => setTappedTab(null), 300)
+      return () => clearTimeout(timer)
     }
   }, [tappedTab])
 
@@ -117,7 +117,6 @@ export default function Navigation() {
                 position: 'relative',
                 animation: tappedTab === tab.to ? 'navBounce 0.28s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
               }}>
-                {/* Colored dot above active icon */}
                 {isActive && lastColor && (
                   <div style={{
                     position: 'absolute',
@@ -130,8 +129,6 @@ export default function Navigation() {
                     transition: 'background-color 0.4s ease',
                   }} />
                 )}
-
-                {/* Reminder badge on Oggi */}
                 {tab.to === '/' && showBadge && (
                   <div style={{
                     position: 'absolute',
@@ -144,7 +141,6 @@ export default function Navigation() {
                     animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
                   }} />
                 )}
-
                 <div style={{ marginTop: isActive && lastColor ? 8 : 0 }}>
                   {tab.icon(isActive)}
                 </div>
