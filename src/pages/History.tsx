@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import {
@@ -95,116 +95,183 @@ export default function History() {
 
 // ─── Diary view ──────────────────────────────────────────────────────────────
 function DiaryView({ entries }: { entries: MoodEntry[] }) {
-  const withNotes  = entries.filter(e => e.note)
-  const allEntries = [...entries].sort((a,b) => b.date.localeCompare(a.date))
+  const [search, setSearch]         = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+  const [filter, setFilter]         = useState<'all' | 'note' | 'location' | string>('all')
 
-  if (allEntries.length === 0) {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(search), 200)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Top 5 colors
+  const topColors = useMemo(() => {
+    const counts = new Map<string, { hex: string; label: string; count: number }>()
+    entries.forEach(e => {
+      const prev = counts.get(e.color_hex)
+      if (prev) { prev.count++ } else { counts.set(e.color_hex, { hex: e.color_hex, label: e.mood_label ?? '', count: 1 }) }
+    })
+    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5)
+  }, [entries])
+
+  const filtered = useMemo(() => {
+    let result = [...entries].sort((a, b) => b.date.localeCompare(a.date))
+    if (debouncedQ) {
+      const q = debouncedQ.toLowerCase()
+      result = result.filter(e =>
+        e.note?.toLowerCase().includes(q) ||
+        e.tags?.some(t => t.toLowerCase().includes(q))
+      )
+    }
+    if (filter === 'note')     result = result.filter(e => e.note)
+    if (filter === 'location') result = result.filter(e => e.location_label)
+    if (filter.startsWith('#')) result = result.filter(e => e.color_hex === filter)
+    return result
+  }, [entries, debouncedQ, filter])
+
+  if (entries.length === 0) {
     return (
       <div className="card p-8 text-center mt-4">
         <p className="text-[32px] mb-3">📖</p>
-        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
-          Il diario è vuoto
-        </p>
-        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-          Quando salvi un colore puoi scrivere una frase. Apparirà qui.
-        </p>
+        <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>Il diario è vuoto</p>
+        <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>Quando salvi un colore puoi scrivere una frase. Apparirà qui.</p>
       </div>
     )
   }
 
-  // Group by month
+  // Group filtered by month
   const byMonth: Record<string, MoodEntry[]> = {}
-  allEntries.forEach(e => {
-    const key = e.date.slice(0, 7) // YYYY-MM
+  filtered.forEach(e => {
+    const key = e.date.slice(0, 7)
     if (!byMonth[key]) byMonth[key] = []
     byMonth[key].push(e)
   })
 
   return (
-    <div className="space-y-8 pb-4">
-      {withNotes.length === 0 && (
-        <div className="px-1">
-          <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-            Nessuna nota ancora — scrivi qualcosa quando salvi il prossimo colore.
-          </p>
-        </div>
-      )}
+    <div className="space-y-4 pb-4">
+      {/* Search bar */}
+      <div className="relative">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'var(--color-muted)', pointerEvents:'none' }}>
+          <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
+          <path d="M10 10l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        </svg>
+        <input
+          type="search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Cerca nelle note e nei tag…"
+          className="w-full pl-10 pr-10 py-3 rounded-2xl text-[13px] focus:outline-none"
+          style={{ background:'var(--color-surface-raised)', border:'1.5px solid var(--color-subtle)', color:'var(--color-foreground)' }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', color:'var(--color-muted)', padding:4 }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+          </button>
+        )}
+      </div>
 
-      {Object.entries(byMonth).map(([monthKey, monthEntries]) => {
-        const [y, m] = monthKey.split('-').map(Number)
-        return (
-          <div key={monthKey}>
-            {/* Month header */}
-            <p className="text-[10px] font-bold uppercase tracking-[0.13em] mb-3" style={{ color: 'var(--color-muted)' }}>
-              {MONTH_FULL[m-1]} {y}
-            </p>
+      {/* Filter chips */}
+      <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:4, scrollbarWidth:'none' }} className="no-scrollbar">
+        {[
+          { key: 'all',      label: 'Tutte' },
+          { key: 'note',     label: 'Con nota' },
+          { key: 'location', label: 'Con luogo' },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            style={{
+              flexShrink:0, padding:'5px 14px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
+              background: filter === f.key ? 'var(--color-foreground)' : 'var(--color-surface-raised)',
+              color:      filter === f.key ? 'var(--color-surface)'    : 'var(--color-muted)',
+              border:     filter === f.key ? 'none'                    : '1.5px solid var(--color-subtle)',
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+        {topColors.map(c => (
+          <button
+            key={c.hex}
+            onClick={() => setFilter(filter === c.hex ? 'all' : c.hex)}
+            style={{
+              flexShrink:0, padding:'5px 12px', borderRadius:100, fontSize:12, fontWeight:600, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:6,
+              background: filter === c.hex ? `${c.hex}30` : 'var(--color-surface-raised)',
+              border: `1.5px solid ${filter === c.hex ? c.hex : 'var(--color-subtle)'}`,
+              color: 'var(--color-foreground)',
+            }}
+          >
+            <div style={{ width:8, height:8, borderRadius:'50%', backgroundColor:c.hex, flexShrink:0 }} />
+            {c.label || c.hex.slice(0,7)}
+          </button>
+        ))}
+      </div>
 
-            <div className="space-y-3">
-              {monthEntries.map(entry => {
-                const d     = new Date(entry.date + 'T12:00:00')
-                const light = needsLight(entry.color_hex)
-
-                return (
-                  <div
-                    key={entry.id}
-                    className="rounded-2xl overflow-hidden"
-                    style={{
-                      border: `1.5px solid ${entry.color_hex}30`,
-                      background: 'var(--color-surface-raised)',
-                      boxShadow: `var(--shadow-xs)`,
-                    }}
-                  >
-                    {/* Color strip + date */}
-                    <div style={{
-                      background: entry.color_hex,
-                      padding: '10px 16px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{
-                          fontSize: 12, fontWeight: 800, letterSpacing: '-0.02em',
-                          color: light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.8)',
-                        }}>
-                          {entry.mood_label ?? 'Personalizzato'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {entry.location_label && (
-                          <span style={{
-                            fontSize: 9,
-                            color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)',
-                          }}>
-                            📍 {entry.location_label}
+      {/* Results */}
+      {filtered.length === 0 ? (
+        <p className="text-[13px] text-center py-8" style={{ color:'var(--color-muted)' }}>
+          Nessun risultato trovato
+        </p>
+      ) : (
+        <>
+          {search && <p className="text-[11px]" style={{ color:'var(--color-muted)' }}>{filtered.length} {filtered.length === 1 ? 'risultato' : 'risultati'}</p>}
+          {Object.entries(byMonth).map(([monthKey, monthEntries]) => {
+            const [y, m] = monthKey.split('-').map(Number)
+            return (
+              <div key={monthKey}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.13em] mb-3" style={{ color:'var(--color-muted)' }}>
+                  {MONTH_FULL[m-1]} {y}
+                </p>
+                <div className="space-y-3">
+                  {monthEntries.map(entry => {
+                    const d     = new Date(entry.date + 'T12:00:00')
+                    const light = needsLight(entry.color_hex)
+                    return (
+                      <div key={entry.id} className="rounded-2xl overflow-hidden"
+                        style={{ border:`1.5px solid ${entry.color_hex}30`, background:'var(--color-surface-raised)', boxShadow:'var(--shadow-xs)' }}>
+                        <div style={{ background:entry.color_hex, padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                          <span style={{ fontSize:12, fontWeight:800, letterSpacing:'-0.02em', color:light ? 'rgba(255,255,255,0.92)':'rgba(0,0,0,0.8)' }}>
+                            {entry.mood_label ?? 'Personalizzato'}
                           </span>
-                        )}
-                        <span style={{
-                          fontSize: 10,
-                          color: light ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.45)',
-                        }}>
-                          {DAY_NAMES[d.getDay()]} {d.getDate()}
-                        </span>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            {entry.location_label && (
+                              <span style={{ fontSize:9, color:light ? 'rgba(255,255,255,0.65)':'rgba(0,0,0,0.45)' }}>📍 {entry.location_label}</span>
+                            )}
+                            <span style={{ fontSize:10, color:light ? 'rgba(255,255,255,0.65)':'rgba(0,0,0,0.45)' }}>
+                              {DAY_NAMES[d.getDay()]} {d.getDate()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="px-4 py-3 space-y-1.5">
+                          {entry.note ? (
+                            <p className="text-[13px] leading-relaxed" style={{ color:'var(--color-foreground)' }}>"{entry.note}"</p>
+                          ) : (
+                            <p className="text-[12px]" style={{ color:'var(--color-muted)', fontStyle:'italic' }}>Nessuna nota per questo giorno.</p>
+                          )}
+                          {entry.tags && entry.tags.length > 0 && (
+                            <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                              {entry.tags.map(t => (
+                                <span key={t} style={{ fontSize:10, padding:'2px 8px', borderRadius:100,
+                                  background:`${entry.color_hex}20`, border:`1px solid ${entry.color_hex}40`,
+                                  color:'var(--color-foreground)' }}>
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Note or empty state */}
-                    <div className="px-4 py-3">
-                      {entry.note ? (
-                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
-                          "{entry.note}"
-                        </p>
-                      ) : (
-                        <p className="text-[12px]" style={{ color: 'var(--color-muted)', fontStyle: 'italic' }}>
-                          Nessuna nota per questo giorno.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
     </div>
   )
 }

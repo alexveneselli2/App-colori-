@@ -70,6 +70,7 @@ interface MoodState {
     opts?: SaveOptions
   ) => Promise<{ error: string | null }>
 
+  updateGrace: (updates: Partial<Pick<GraceEntry, 'colorHex' | 'moodLabel' | 'note' | 'tags' | 'source'>>) => void
   commitGrace: (userId: string) => Promise<{ error: string | null }>
   cancelGrace: () => void
   initGrace: (userId: string) => Promise<void>
@@ -221,6 +222,14 @@ export const useMoodStore = create<MoodState>((set, get) => ({
     }, 5 * 60 * 1000)
 
     return { error: null }
+  },
+
+  updateGrace: (updates) => {
+    const grace = get().pendingGrace
+    if (!grace) return
+    const updated: GraceEntry = { ...grace, ...updates }
+    saveGrace(updated)
+    set({ pendingGrace: updated })
   },
 
   commitGrace: async (userId) => {

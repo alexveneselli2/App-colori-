@@ -51,11 +51,11 @@ export function enterDemo(): void {
         color_hex:      palette[idx],
         mood_label:     labels[idx],
         note:           null,
-        tags:           null,
         source:         'palette' as const,
         latitude:       null,
         longitude:      null,
         location_label: null,
+        tags:           null,
         created_at:     d.toISOString(),
         locked:         true,
       })
@@ -82,11 +82,11 @@ export interface DemoEntry {
   color_hex: string
   mood_label: string | null
   note: string | null
-  tags: string[] | null
   source: 'palette' | 'custom'
   latitude: number | null
   longitude: number | null
   location_label: string | null
+  tags: string[] | null
   created_at: string
   locked: boolean
 }
@@ -108,7 +108,6 @@ export function saveDemoEntry(entry: Omit<DemoEntry, 'id' | 'created_at'>): Demo
 
   const newEntry: DemoEntry = {
     ...entry,
-    tags:       entry.tags ?? null,
     id:         `demo-${Date.now()}`,
     created_at: new Date().toISOString(),
   }
@@ -118,14 +117,17 @@ export function saveDemoEntry(entry: Omit<DemoEntry, 'id' | 'created_at'>): Demo
   return newEntry
 }
 
-/** Upsert today's demo entry — replaces an existing one if present (used by grace period edit). */
 export function upsertDemoEntry(entry: Omit<DemoEntry, 'id' | 'created_at'>): DemoEntry {
-  const today = toISOLocal(new Date())
-  const all   = getDemoEntries().filter(e => e.date !== today)
-
+  const all = getDemoEntries()
+  const idx = all.findIndex(e => e.date === entry.date)
+  if (idx >= 0) {
+    const updated = { ...all[idx], ...entry }
+    all[idx] = updated
+    localStorage.setItem(DEMO_ENTRIES, JSON.stringify(all))
+    return updated
+  }
   const newEntry: DemoEntry = {
     ...entry,
-    tags:       entry.tags ?? null,
     id:         `demo-${Date.now()}`,
     created_at: new Date().toISOString(),
   }

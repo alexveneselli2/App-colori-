@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type KeyboardEvent, type CSSProperties } f
 import confetti from 'canvas-confetti'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
+import { useThemeStore } from '../store/useThemeStore'
 import { MOOD_PALETTE } from '../constants/moods'
-import { MONTH_FULL } from '../lib/dateUtils'
+import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
-import ArtGenerator from '../components/ArtGenerator'
+import type { GraceEntry } from '../lib/gracePeriod'
 import type { MoodColor } from '../constants/moods'
 
 const DAY_NAMES = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
@@ -61,7 +62,7 @@ const ORB_COLORS = ['#FFD000','#FF6B00','#FF0A54','#C77DFF','#00B4D8','#52B788',
 
 export default function Today() {
   const { profile, signOut } = useAuthStore()
-  const { entries, todayEntry, pendingGrace, fetchTodayEntry, saveTodayEntry, fetchEntries, beginGrace, cancelGrace, commitGrace } = useMoodStore()
+  const { entries, todayEntry, pendingGrace, fetchTodayEntry, saveTodayEntry, fetchEntries, beginGrace, cancelGrace, commitGrace, updateGrace } = useMoodStore()
 
   const [loaded, setLoaded]         = useState(false)
   const [tab, setTab]               = useState<Tab>('palette')
@@ -79,6 +80,7 @@ export default function Today() {
   const [error, setError]           = useState<string | null>(null)
   const [showProfile, setShowProfile] = useState(false)
   const [graceTimeLeft, setGraceTimeLeft] = useState<number>(0)
+  const [showEditGrace, setShowEditGrace] = useState(false)
 
   const today = new Date()
 
@@ -241,33 +243,63 @@ export default function Today() {
             )}
           </div>
 
-          <div className="text-center space-y-1.5 w-full max-w-xs">
-            <p className="text-[17px] font-extrabold tracking-[-0.03em]" style={{ color: 'var(--color-foreground)' }}>
-              Il tuo colore è custodito.
-            </p>
+          {/* Summary card */}
+          <div className="card p-4 w-full max-w-xs space-y-2 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="flex items-center gap-2" style={{ color: 'var(--color-muted)' }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M6 3.5v3l2 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              <p className="text-[12px]">Salvato alle {new Date(todayEntry.created_at).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</p>
+            </div>
+            {todayEntry.location_label && (
+              <div className="flex items-center gap-2" style={{ color: 'var(--color-muted)' }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M6 2C6 2 10 6 10 8.5c0 1.2-1.8 2-4 2s-4-.8-4-2C2 6 6 2 6 2z" stroke="currentColor" strokeWidth="1.2"/>
+                </svg>
+                <p className="text-[12px]">{todayEntry.location_label}</p>
+              </div>
+            )}
+            {todayEntry.tags && todayEntry.tags.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                {todayEntry.tags.map(t => (
+                  <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100,
+                    background: `${todayEntry.color_hex}20`, border: `1px solid ${todayEntry.color_hex}40`,
+                    color: 'var(--color-foreground)' }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
             {todayEntry.note && (
-              <p className="text-[13px] italic leading-relaxed px-4" style={{ color: 'var(--color-muted)' }}>
+              <p className="text-[12px] italic leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
                 "{todayEntry.note}"
               </p>
             )}
-            {todayEntry.location_label && (
-              <p className="text-[11px] flex items-center justify-center gap-1" style={{ color: 'var(--color-muted)' }}>
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                  <path d="M5 2.5C5 2.5 8 5.5 8 7c0 1-1.3 1.5-3 1.5S2 8 2 7c0-1.5 3-4.5 3-4.5z" stroke="currentColor" strokeWidth="1.2"/>
-                </svg>
-                {todayEntry.location_label}
-              </p>
-            )}
-            <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-              Torna domani per il prossimo.
-            </p>
+            <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>Torna domani per il prossimo.</p>
           </div>
 
-          {/* Art Generator */}
-          <div style={{ width: '100%', maxWidth: 400 }}>
-            <ArtGenerator entries={entries} height={220} />
-          </div>
+          {/* Share button */}
+          {navigator.share && (
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.share({
+                    title: 'Il mio colore di oggi — Iride',
+                    text: `Oggi mi sento ${todayEntry.mood_label ?? 'unico'} (${todayEntry.color_hex}) — Iride`,
+                  })
+                } catch { /* user cancelled */ }
+              }}
+              className="flex items-center gap-2 py-3 px-5 rounded-2xl text-[13px] font-semibold transition-all active:scale-[0.97]"
+              style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M11 1l4 4-4 4M15 5H5a4 4 0 000 8h1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Condividi il colore di oggi
+            </button>
+          )}
         </div>
 
         {showProfile && <ProfileSheet profile={profile} onClose={() => setShowProfile(false)} onSignOut={signOut} />}
@@ -348,15 +380,26 @@ export default function Today() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button
-                  onClick={() => {
-                    if (profile) commitGrace(profile.id)
-                  }}
+                  onClick={() => setShowEditGrace(true)}
                   style={{
                     padding: '8px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
                     background: pendingGrace.colorHex,
                     color: light ? '#fff' : '#1C1917',
                     fontSize: 12, fontWeight: 700,
                     boxShadow: `0 4px 12px ${pendingGrace.colorHex}55`,
+                    fontFamily: 'Inter, system-ui, sans-serif',
+                  }}
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => { if (profile) commitGrace(profile.id) }}
+                  style={{
+                    padding: '8px 14px', borderRadius: 12, cursor: 'pointer',
+                    background: 'transparent',
+                    border: `1.5px solid ${pendingGrace.colorHex}60`,
+                    color: pendingGrace.colorHex,
+                    fontSize: 12, fontWeight: 600,
                     fontFamily: 'Inter, system-ui, sans-serif',
                   }}
                 >
@@ -379,12 +422,15 @@ export default function Today() {
             </div>
           </div>
 
-          {/* Art Generator */}
-          <div style={{ width: '100%', maxWidth: 400 }}>
-            <ArtGenerator entries={entries} height={220} />
-          </div>
         </div>
 
+        {showEditGrace && (
+          <EditGraceSheet
+            grace={pendingGrace}
+            onSave={(updates) => { updateGrace(updates); setShowEditGrace(false) }}
+            onClose={() => setShowEditGrace(false)}
+          />
+        )}
         {showProfile && <ProfileSheet profile={profile} onClose={() => setShowProfile(false)} onSignOut={signOut} />}
       </div>
     )
@@ -398,8 +444,8 @@ export default function Today() {
       {bgColor && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 130% 60% at 50% 0%, ${bgColor}28 0%, transparent 65%)`,
-          transition: 'background 0.7s ease',
+          background: `radial-gradient(ellipse 160% 55% at 50% -5%, ${bgColor}40 0%, transparent 58%), radial-gradient(ellipse 90% 28% at 50% 115%, ${bgColor}18 0%, transparent 100%)`,
+          transition: 'background 0.8s ease',
         }} />
       )}
 
@@ -553,26 +599,35 @@ export default function Today() {
           )}
         </div>
 
-        {error && <p className="text-[12px] mt-3" style={{ color: '#BE123C' }}>{error}</p>}
+        {error && <p className="text-[12px] mt-2 px-1" style={{ color: '#BE123C' }}>{error}</p>}
 
-        {/* ── CTA ── */}
-        <div className="mt-5">
-          <button
-            onClick={() => setConfirming(true)}
-            disabled={!selected}
-            className="w-full py-4 rounded-2xl text-[15px] font-extrabold transition-all active:scale-[0.98] disabled:opacity-20"
-            style={{
-              background: selected?.hex ?? 'var(--color-foreground)',
-              color: selected ? (needsLightText(selected.hex) ? '#FFFFFF' : '#1C1917') : '#FFFFFF',
-              boxShadow: selected ? `0 10px 32px ${selected.hex}60` : '0 4px 14px rgba(28,25,23,0.20)',
-              transition: 'background 0.35s ease, box-shadow 0.35s ease',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {selected?.label ? `Oggi mi sento ${selected.label}` : 'Scegli un colore'}
-          </button>
-        </div>
+      </div>
 
+      {/* ── Sticky CTA ── hidden in mix tab (has its own inline button) */}
+      <div style={{
+        position: 'sticky',
+        bottom: 'calc(var(--nav-total) + 8px)',
+        zIndex: 20,
+        padding: '14px 20px 4px',
+        background: `linear-gradient(to bottom, transparent 0%, var(--color-surface) 28%)`,
+        pointerEvents: 'none',
+        display: tab === 'mix' ? 'none' : undefined,
+      }}>
+        <button
+          onClick={() => setConfirming(true)}
+          disabled={!selected}
+          className="w-full py-4 rounded-2xl text-[15px] font-extrabold transition-all active:scale-[0.98] disabled:opacity-25"
+          style={{
+            pointerEvents: 'auto',
+            background: selected?.hex ?? 'var(--color-foreground)',
+            color: selected ? (needsLightText(selected.hex) ? '#FFFFFF' : '#1C1917') : 'rgba(255,255,255,0.6)',
+            boxShadow: selected ? `0 12px 36px ${selected.hex}65, 0 4px 12px ${selected.hex}30` : '0 4px 14px rgba(28,25,23,0.18)',
+            transition: 'background 0.35s ease, box-shadow 0.35s ease, color 0.35s ease',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          {selected?.label ? `Oggi mi sento ${selected.label} →` : 'Scegli un colore'}
+        </button>
       </div>
 
       {/* ── Confirmation sheet ── */}
@@ -596,178 +651,194 @@ export default function Today() {
   )
 }
 
-// ─── Italian emotion lexicon for validation ───────────────────────────────────
-const EMOTION_WORDS = [
-  // Emozioni primarie
-  'gioia','felice','felicità','gioioso','contento','contentezza','allegro','allegria',
-  'euforia','euforico','eccitato','eccitazione','esaltato','esaltazione',
-  'estasi','estatico','estasiat',
-  'passione','appassionato','ardore',
-  'tenerezza','tenero','dolcezza','dolce','affetto',
-  'nostalgia','nostalgico','malinconico','malinconia',
-  'meraviglia','meraviglioso','stupore','stuporoso','ammirazione',
-  'anticipazione','attesa','speranza','speranzoso','ottimismo','ottimista',
-  'sorpresa','sorpreso','stupito',
-  'gratitudine','grato','riconoscente',
-  'fiducia','fiducioso','sicuro','sicurezza','calmo','calma','serenità','sereno',
-  'tranquillo','tranquillità','pace','pacifico','rilassato','rilassatezza',
-  'solitudine','solo','isolato','isolamento',
-  'tristezza','triste','abbattuto','abbattimento','depresso','depressione',
-  'rabbia','arrabbiato','furioso','furibondo','ira','collera','frustrazione','frustrato',
-  'paura','spaventato','ansioso','ansia','terrore','terrorizzato','preoccupato',
-  'disgusto','disgustato','nausea','ribrezzo','repulsione',
-  'confuso','confusione','disorientato','incerto','incertezza',
-  'deluso','delusione','amarezza','amaro',
-  'invidia','geloso','gelosia',
-  'orgoglio','orgoglioso','fiero',
-  'amore','innamorato','affettuoso',
-  // Mente attiva
-  'concentrato','concentrazione','focalizzato','focus','lucido','presente','attento',
-  'coinvolto','coinvolgimento','immerso','assorbito','impegnato','engaged','involved',
-  'curioso','curiosità','interessato','interesse',
-  'ispirato','ispirazione','creativo','creatività','illuminato',
-  // Zone d'ombra
-  'esausto','esaurimento','esaurita','stanco','stanchezza','spossato','logorato','sfinito','burnout',
-  'annoiato','noia','apatico','apatia','indifferente','vuoto','piatto','blando',
-  'imbarazzato','imbarazzo','vergogna','a disagio','disagio',
-  'sollievo','sollevato','liberato','liberazione','scarico',
-  // Generici
-  'bene','male','così così','neutro','normale','ok','okay','strano','leggero','pesante',
+// ─── Palette grouped by emotional family ────────────────────────────────────
+const PRIMARY_GROUPS: { label: string; moods: MoodColor[] }[] = [
+  { label: 'Luminose', moods: [0,1,2,8,9].map(i => MOOD_PALETTE[i]) },
+  { label: 'Calde',    moods: [3,4,7,10,11].map(i => MOOD_PALETTE[i]) },
+  { label: 'Profonde', moods: [5,6,12,13,14].map(i => MOOD_PALETTE[i]) },
+  { label: 'Intense',  moods: [15,16,17,18,19].map(i => MOOD_PALETTE[i]) },
+]
+const EXTRA_GROUPS: { label: string; moods: MoodColor[] }[] = [
+  { label: 'Mente Attiva', moods: MOOD_PALETTE.slice(20, 24) },
+  { label: "Zone d'Ombra", moods: MOOD_PALETTE.slice(24, 28) },
 ]
 
-function validateEmotion(text: string): { valid: boolean; suggestion: string | null } {
-  if (!text.trim()) return { valid: false, suggestion: null }
-  const lower = text.toLowerCase().trim()
-  const found = EMOTION_WORDS.some(w => lower.includes(w) || w.includes(lower))
-  if (found) return { valid: true, suggestion: null }
+function PaletteGroup({ label, moods, cols, isOpen, hasSelected, selectedHex, onToggle, onSelect }: {
+  label: string; moods: MoodColor[]; cols: number
+  isOpen: boolean; hasSelected: boolean; selectedHex: string | undefined
+  onToggle: () => void; onSelect: (m: MoodColor) => void
+}) {
+  // Representative color = middle of the group
+  const accent = moods[Math.floor(moods.length / 2)].hex
 
-  // Try to suggest a close palette match
-  const suggestion = MOOD_PALETTE.find(m => {
-    const ml = m.label.toLowerCase()
-    return lower.split(' ').some(w => ml.includes(w) || w.includes(ml.slice(0,4)))
-  })?.label ?? null
+  return (
+    <div style={{
+      borderRadius: 20,
+      border: `1.5px solid ${accent}${isOpen ? '38' : '22'}`,
+      background: isOpen ? `${accent}12` : `${accent}07`,
+      transition: 'border-color 0.22s ease, background 0.22s ease',
+      overflow: 'hidden',
+    }}>
+      {/* ── Group header ── */}
+      <button
+        onClick={onToggle}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: isOpen ? '12px 14px 10px' : '11px 14px',
+          background: 'none', border: 'none', cursor: 'pointer',
+          transition: 'padding 0.2s ease',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          {/* Color spectrum strip */}
+          <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+            {moods.map(m => (
+              <div key={m.hex} style={{
+                width: m.hex === selectedHex ? 14 : 10,
+                height: m.hex === selectedHex ? 14 : 10,
+                borderRadius: 5,
+                backgroundColor: m.hex,
+                flexShrink: 0,
+                transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                boxShadow: m.hex === selectedHex
+                  ? `0 0 0 2px var(--color-surface-raised), 0 0 0 3.5px ${m.hex}, 0 3px 8px ${m.hex}70`
+                  : `0 1px 4px ${m.hex}55`,
+              }} />
+            ))}
+          </div>
+          {/* Label */}
+          <span style={{
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase',
+            color: hasSelected ? 'var(--color-foreground)' : 'var(--color-muted)',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            transition: 'color 0.2s ease',
+          }}>
+            {label}
+          </span>
+          {hasSelected && !isOpen && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
+              background: `${selectedHex}25`, color: selectedHex,
+              border: `1px solid ${selectedHex}40`,
+            }}>
+              ✓
+            </span>
+          )}
+        </div>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{
+          transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+          transition: 'transform 0.22s ease',
+          color: hasSelected ? accent : 'var(--color-muted)',
+          flexShrink: 0,
+        }}>
+          <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
 
-  return { valid: false, suggestion }
+      {/* ── Swatch grid ── */}
+      {isOpen && (
+        <div className="tab-content-enter" style={{
+          display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: 7, padding: '2px 10px 12px',
+        }}>
+          {moods.map((mood) => {
+            const isSelected = selectedHex === mood.hex
+            const light = needsLightText(mood.hex)
+            return (
+              <button
+                key={mood.hex}
+                onClick={() => { if (navigator.vibrate) navigator.vibrate(15); onSelect(mood) }}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', borderRadius: 16 }}
+              >
+                <div style={{
+                  width: '100%',
+                  height: 72, // fixed height so all groups look the same regardless of column count
+                  borderRadius: isSelected ? 18 : 14,
+                  backgroundColor: mood.hex,
+                  position: 'relative',
+                  transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                  transform: isSelected ? 'scale(1.07)' : 'scale(1)',
+                  boxShadow: isSelected
+                    ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 28px ${mood.hex}70`
+                    : `0 2px 8px ${mood.hex}50`,
+                }}>
+                  {/* Label */}
+                  <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5, pointerEvents: 'none' }}>
+                    <p style={{
+                      fontSize: 8, fontWeight: isSelected ? 800 : 700,
+                      color: light ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.72)',
+                      lineHeight: 1.15, fontFamily: 'Inter, system-ui, sans-serif',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {mood.label}
+                    </p>
+                  </div>
+                  {/* Check badge */}
+                  {isSelected && (
+                    <div style={{
+                      position: 'absolute', top: 5, right: 5,
+                      width: 15, height: 15, borderRadius: '50%',
+                      background: light ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l3 3 5-6"
+                          stroke={light ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.80)'}
+                          strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
-
-// ─── Palette grouped by section ──────────────────────────────────────────────
-const PALETTE_SECTIONS = [
-  { label: 'Emozioni primarie', range: [0, 20]  as [number,number] },
-  { label: 'Mente attiva',      range: [20, 24] as [number,number] },
-  { label: 'Zone d\'ombra',     range: [24, 28] as [number,number] },
-]
 
 function PaletteWithSections({ selected, onSelect }: {
   selected: Selection | null
   onSelect: (m: MoodColor) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({
-    'Emozioni primarie': true,
-    'Mente attiva':      true,
-    'Zone d\'ombra':     true,
+    'Luminose': true, 'Calde': false, 'Profonde': false, 'Intense': false,
+    'Mente Attiva': false, "Zone d'Ombra": false,
   })
 
-  const toggle = (label: string) =>
-    setOpen(o => ({ ...o, [label]: !o[label] }))
+  // One-at-a-time: opening one group closes all others
+  const toggle = (label: string) => setOpen(o => {
+    const wasOpen = o[label]
+    const next: Record<string, boolean> = {}
+    Object.keys(o).forEach(k => { next[k] = k === label ? !wasOpen : false })
+    return next
+  })
+
+  const handleSelect = (m: MoodColor, groupLabel: string) => {
+    onSelect(m)
+    // Auto-close the group after selection
+    setOpen(o => ({ ...o, [groupLabel]: false }))
+  }
 
   return (
-    <div className="space-y-3">
-      {PALETTE_SECTIONS.map(({ label, range }) => {
-        const moods = MOOD_PALETTE.slice(range[0], range[1])
-        const isOpen = open[label]
-        const hasSelected = moods.some(m => m.hex === selected?.hex)
-        return (
-          <div key={label}>
-            {/* Section header */}
-            <button
-              onClick={() => toggle(label)}
-              className="w-full flex items-center justify-between mb-2.5 active:opacity-70 transition-opacity"
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-[0.13em]"
-                  style={{ color: hasSelected ? 'var(--color-foreground)' : 'var(--color-muted)' }}>
-                  {label}
-                </span>
-                {hasSelected && (
-                  <div style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    backgroundColor: selected!.hex,
-                    boxShadow: `0 0 6px ${selected!.hex}`,
-                  }} />
-                )}
-              </div>
-              <svg
-                width="14" height="14" viewBox="0 0 14 14" fill="none"
-                style={{
-                  transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                  transition: 'transform 0.2s ease',
-                  color: 'var(--color-muted)',
-                }}
-              >
-                <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.6"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-
-            {/* Swatches */}
-            {isOpen && (
-              <div
-                className="tab-content-enter"
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}
-              >
-                {moods.map((mood, i) => {
-                  const row = Math.min(Math.floor(i / 4) + 1, 4)
-                  const isSelected = selected?.hex === mood.hex
-                  const light = needsLightText(mood.hex)
-                  return (
-                    <button
-                      key={mood.hex}
-                      onClick={() => onSelect(mood)}
-                      className={`swatch-row-${row}`}
-                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                    >
-                      <div style={{
-                        width: '100%', paddingTop: '110%', borderRadius: isSelected ? 22 : 18,
-                        backgroundColor: mood.hex, position: 'relative',
-                        transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                        transform: isSelected ? 'scale(1.07)' : 'scale(1)',
-                        boxShadow: isSelected
-                          ? `0 0 0 2.5px var(--color-surface), 0 0 0 4.5px ${mood.hex}, 0 10px 30px ${mood.hex}70`
-                          : `0 4px 14px ${mood.hex}45`,
-                      }}>
-                        <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, pointerEvents: 'none' }}>
-                          <p style={{
-                            fontSize: 9.5, fontWeight: isSelected ? 800 : 600,
-                            color: light ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.72)',
-                            lineHeight: 1.1, fontFamily: 'Inter, system-ui, sans-serif',
-                          }}>
-                            {mood.label}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <div style={{
-                            position: 'absolute', top: 8, right: 8,
-                            width: 18, height: 18, borderRadius: '50%',
-                            background: light ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}>
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 4l3 3 5-6"
-                                stroke={light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)'}
-                                strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )
-      })}
+    <div className="space-y-2.5">
+      {PRIMARY_GROUPS.map(g => (
+        <PaletteGroup key={g.label} label={g.label} moods={g.moods} cols={5}
+          isOpen={open[g.label]} hasSelected={g.moods.some(m => m.hex === selected?.hex)}
+          selectedHex={selected?.hex}
+          onToggle={() => toggle(g.label)}
+          onSelect={(m) => handleSelect(m, g.label)}
+        />
+      ))}
+      {EXTRA_GROUPS.map(g => (
+        <PaletteGroup key={g.label} label={g.label} moods={g.moods} cols={4}
+          isOpen={open[g.label]} hasSelected={g.moods.some(m => m.hex === selected?.hex)}
+          selectedHex={selected?.hex}
+          onToggle={() => toggle(g.label)}
+          onSelect={(m) => handleSelect(m, g.label)}
+        />
+      ))}
     </div>
   )
 }
@@ -779,38 +850,13 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
   onUse: (label: string) => void
 }) {
   const [sentiment, setSentiment] = useState('')
-  const [validationMsg, setValidationMsg] = useState<string | null>(null)
-  const [validationOk, setValidationOk] = useState(false)
   const light = needsLightText(customHex)
+  const ok = sentiment.trim().length >= 2
 
-  const handleValidate = () => {
-    if (!sentiment.trim()) {
-      setValidationMsg('Inserisci un sentimento per questo colore.')
-      setValidationOk(false)
-      return
-    }
-    const { valid, suggestion } = validateEmotion(sentiment)
-    if (valid) {
-      setValidationOk(true)
-      setValidationMsg(null)
-    } else {
-      setValidationOk(false)
-      setValidationMsg(suggestion
-        ? `Non sembra un sentimento riconosciuto. Intendevi "${suggestion}"?`
-        : 'Descrivi come ti senti — es. "felice", "nostalgico", "in pace".')
-    }
-  }
-
-  const handleUse = () => {
-    if (!sentiment.trim()) {
-      setValidationMsg('Inserisci come ti senti con questo colore.')
-      return
-    }
-    handleValidate()
-    if (validateEmotion(sentiment).valid || sentiment.trim().length >= 3) {
-      onUse(sentiment.trim())
-    }
-  }
+  // Palette autocomplete suggestions
+  const suggestions = sentiment.length >= 1
+    ? MOOD_PALETTE.filter(m => m.label.toLowerCase().startsWith(sentiment.toLowerCase())).slice(0, 3)
+    : []
 
   return (
     <div className="space-y-4">
@@ -840,36 +886,49 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
           {/* Sentiment field */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: 'var(--color-muted)' }}>
-              Come ti fa sentire questo colore? *
+              Come ti fa sentire questo colore?
             </p>
             <input
               type="text"
               value={sentiment}
-              onChange={e => { setSentiment(e.target.value); setValidationMsg(null); setValidationOk(false) }}
-              onBlur={handleValidate}
+              onChange={e => setSentiment(e.target.value)}
               placeholder="es. malinconico, in pace, energico…"
               maxLength={40}
               className="w-full px-4 py-3 rounded-xl text-[13px] focus:outline-none transition-all"
               style={{
                 background: 'var(--color-surface)',
-                border: `1.5px solid ${validationOk ? '#52B788' : validationMsg ? '#FF0A54' : 'var(--color-subtle)'}`,
+                border: `1.5px solid ${ok ? customHex + '60' : 'var(--color-subtle)'}`,
                 color: 'var(--color-foreground)',
               }}
             />
-            {validationMsg && (
-              <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: '#FF0A54' }}>
-                {validationMsg}
-              </p>
-            )}
-            {validationOk && (
-              <p className="text-[11px] mt-1.5" style={{ color: '#52B788' }}>
-                ✓ Sentimento riconosciuto
-              </p>
+            {ok && <p className="text-[11px] mt-1.5" style={{ color: customHex }}>✓ Pronto</p>}
+
+            {/* Autocomplete chips */}
+            {suggestions.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                {suggestions.map(m => (
+                  <button
+                    key={m.hex}
+                    type="button"
+                    onClick={() => { setSentiment(m.label); setCustomHex(m.hex); onUse(m.label) }}
+                    style={{
+                      fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 100,
+                      background: `${m.hex}20`, border: `1px solid ${m.hex}40`,
+                      color: 'var(--color-foreground)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: m.hex, display: 'inline-block' }} />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
-          <button onClick={handleUse}
-            className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97]"
+          <button
+            onClick={() => { if (ok) onUse(sentiment.trim()) }}
+            disabled={!ok}
+            className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97] disabled:opacity-40"
             style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
             Usa questo colore →
           </button>
@@ -953,8 +1012,8 @@ function ConfirmSheet({ selected, saving, note, onNoteChange, tags, onTagsChange
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
-      style={{ background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
       onClick={onCancel}
     >
       <div
@@ -1092,19 +1151,36 @@ const profileBtnStyle: CSSProperties = {
 function ProfileSheet({ profile, onClose, onSignOut }: {
   profile: { display_name: string; username: string } | null; onClose: () => void; onSignOut: () => void
 }) {
+  const { theme, setTheme } = useThemeStore()
+  const [reminderOn, setReminderOn]     = useState(!!localStorage.getItem('iride_reminder_time'))
+  const [reminderTime, setReminderTime] = useState(localStorage.getItem('iride_reminder_time') || '20:00')
+
+  const handleReminderToggle = async () => {
+    if (reminderOn) {
+      localStorage.removeItem('iride_reminder_time')
+      setReminderOn(false)
+    } else {
+      if (!('Notification' in window)) return
+      const perm = await Notification.requestPermission()
+      if (perm === 'granted') {
+        localStorage.setItem('iride_reminder_time', reminderTime)
+        setReminderOn(true)
+      }
+    }
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in"
-      style={{ background: 'rgba(28,25,23,0.50)', backdropFilter: 'blur(16px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.50)', backdropFilter: 'blur(16px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md mx-4 rounded-3xl p-6 space-y-5 animate-slide-up"
-        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)' }}
+        className="w-full max-w-md mx-4 rounded-3xl p-6 space-y-4 animate-slide-up"
+        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: '85dvh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Brand orb strip */}
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
           {ORB_COLORS.map(hex => (
             <div key={hex} style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: hex, opacity: 0.7 }} />
           ))}
@@ -1123,6 +1199,59 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
 
         <div style={{ height: 1, background: 'var(--color-subtle)' }} />
 
+        {/* Theme toggle */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>Tema</p>
+          <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
+            {(['light','dark','system'] as const).map(t => (
+              <button key={t} onClick={() => setTheme(t)}
+                className="flex-1 py-2 rounded-xl text-[11px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  background: theme === t ? 'var(--color-surface-raised)' : 'transparent',
+                  color: theme === t ? 'var(--color-foreground)' : 'var(--color-muted)',
+                  boxShadow: theme === t ? 'var(--shadow-xs)' : undefined,
+                }}>
+                {t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : 'Auto'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reminder toggle */}
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-semibold" style={{ color: 'var(--color-foreground)' }}>Reminder giornaliero</p>
+              <p className="text-[10px]" style={{ color: 'var(--color-muted)' }}>Notifica quando l'app è aperta nel browser</p>
+            </div>
+            <div onClick={handleReminderToggle} style={{
+              width: 44, height: 26, borderRadius: 99, position: 'relative', cursor: 'pointer', flexShrink: 0,
+              background: reminderOn ? 'var(--color-foreground)' : 'var(--color-subtle)', transition: 'background 0.2s',
+            }}>
+              <div style={{
+                position: 'absolute', top: 4, width: 18, height: 18, borderRadius: '50%',
+                background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                left: reminderOn ? 22 : 4, transition: 'left 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+              }} />
+            </div>
+          </div>
+          {reminderOn && (
+            <select value={reminderTime}
+              onChange={e => { setReminderTime(e.target.value); localStorage.setItem('iride_reminder_time', e.target.value) }}
+              className="w-full px-4 py-2.5 rounded-xl text-[13px] focus:outline-none mt-2"
+              style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
+              {Array.from({ length: 33 }, (_, i) => {
+                const mins = 7*60 + i*30
+                const h = String(Math.floor(mins/60)).padStart(2,'0')
+                const m = String(mins%60).padStart(2,'0')
+                return <option key={`${h}:${m}`} value={`${h}:${m}`}>{h}:{m}</option>
+              })}
+            </select>
+          )}
+        </div>
+
+        <div style={{ height: 1, background: 'var(--color-subtle)' }} />
+
         <button onClick={() => { onSignOut(); onClose() }}
           className="w-full py-3.5 rounded-2xl text-[14px] font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
@@ -1131,6 +1260,109 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
           </svg>
           Esci dall'account
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Edit Grace Sheet (Step 4) ────────────────────────────────────────────────
+function EditGraceSheet({ grace, onSave, onClose }: {
+  grace: GraceEntry
+  onSave: (updates: Partial<Pick<GraceEntry, 'colorHex' | 'moodLabel' | 'note' | 'tags' | 'source'>>) => void
+  onClose: () => void
+}) {
+  const [selectedMood, setSelectedMood] = useState<MoodColor | null>(
+    MOOD_PALETTE.find(m => m.hex === grace.colorHex) ?? null
+  )
+  const [note, setNote]   = useState(grace.note ?? '')
+  const [tags, setTags]   = useState<string[]>(grace.tags ?? [])
+  const [tagIn, setTagIn] = useState('')
+  const light = needsLightText(selectedMood?.hex ?? grace.colorHex)
+  const hex = selectedMood?.hex ?? grace.colorHex
+
+  const addTag = (raw: string) => {
+    const t = raw.trim().slice(0,20)
+    if (!t || tags.includes(t) || tags.length >= 5) return
+    setTags(ts => [...ts, t]); setTagIn('')
+  }
+
+  return (
+    <div className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      onClick={onClose}>
+      <div className="w-full max-w-md mx-4 rounded-3xl overflow-hidden animate-slide-up"
+        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: '85dvh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Color preview header */}
+        <div style={{ height: 100, background: hex, display: 'flex', alignItems: 'flex-end', padding: '0 20px 14px' }}>
+          <p style={{ fontSize: 22, fontWeight: 900, color: light ? 'rgba(255,255,255,0.95)':'rgba(0,0,0,0.82)',
+            fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.04em' }}>
+            {selectedMood?.label ?? 'Personalizzato'}
+          </p>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Mini palette */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>Cambia colore</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 6 }}>
+              {MOOD_PALETTE.map(m => (
+                <button key={m.hex} onClick={() => setSelectedMood(m)}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                  <div style={{ width: '100%', paddingTop: '100%', borderRadius: '50%', backgroundColor: m.hex,
+                    border: selectedMood?.hex === m.hex ? '2.5px solid var(--color-foreground)' : '2px solid transparent',
+                    transform: selectedMood?.hex === m.hex ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.18s', }} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Note */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: 'var(--color-muted)' }}>Nota</p>
+            <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={280} rows={2}
+              className="w-full px-4 py-3 rounded-2xl text-[13px] focus:outline-none resize-none"
+              style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }} />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5" style={{ color: 'var(--color-muted)' }}>Tag</p>
+            {tags.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 }}>
+                {tags.map(t => (
+                  <span key={t} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: `${hex}20`, border: `1px solid ${hex}40`, color: 'var(--color-foreground)', cursor: 'pointer' }}
+                    onClick={() => setTags(ts => ts.filter(x => x !== t))}>
+                    {t} ×
+                  </span>
+                ))}
+              </div>
+            )}
+            {tags.length < 5 && (
+              <input value={tagIn} onChange={e => setTagIn(e.target.value)} maxLength={20}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagIn) } }}
+                onBlur={() => { if (tagIn.trim()) addTag(tagIn) }}
+                placeholder="Aggiungi tag…"
+                className="w-full px-4 py-2.5 rounded-xl text-[13px] focus:outline-none"
+                style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }} />
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 py-3.5 rounded-2xl text-[14px] font-semibold active:scale-[0.98]"
+              style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
+              Annulla
+            </button>
+            <button
+              onClick={() => onSave({ colorHex: hex, moodLabel: selectedMood?.label ?? grace.moodLabel, note: note.trim() || null, tags, source: selectedMood ? 'palette' : grace.source })}
+              className="flex-[2] py-3.5 rounded-2xl text-[14px] font-extrabold active:scale-[0.98]"
+              style={{ background: hex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${hex}55` }}>
+              Salva modifiche →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
