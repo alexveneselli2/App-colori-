@@ -10,9 +10,9 @@ export interface MoodColor {
  * Jonauskaite et al. 2020 (30 nazioni) · Wilms & Oberfeld 2018
  *
  * Sezioni:
- * 1. Emozioni primarie   (Gioia → Disgusto)          — 20 colori
- * 2. Mente Attiva        (Concentrazione → Coinvolgimento) — 4 colori
- * 3. Zone d'Ombra        (Noia → Sollievo)            — 4 colori
+ * 1. Emozioni primarie   (Gioia → Disgusto)               — 20 colori
+ * 2. Mente Attiva        (Concentrazione → Determinazione) — 5 colori
+ * 3. Zone d'Ombra        (Noia → Apatia)                  — 5 colori
  */
 export const MOOD_PALETTE: MoodColor[] = [
   // ── 1. Emozioni primarie ───────────────────────────────────────────────────
@@ -42,12 +42,14 @@ export const MOOD_PALETTE: MoodColor[] = [
   { label: 'Curiosità',      hex: '#06D6A0', emotion_en: 'Curiosity' },
   { label: 'Ispirazione',    hex: '#FF006E', emotion_en: 'Inspiration' },
   { label: 'Coinvolgimento', hex: '#4361EE', emotion_en: 'Involvement' },
+  { label: 'Determinazione', hex: '#5E60CE', emotion_en: 'Determination' },
 
   // ── 3. Zone d'Ombra ───────────────────────────────────────────────────────
   { label: 'Noia',           hex: '#94A3B8', emotion_en: 'Boredom' },
   { label: 'Imbarazzo',      hex: '#FFADAD', emotion_en: 'Embarrassment' },
   { label: 'Esaurimento',    hex: '#7C5C45', emotion_en: 'Exhaustion' },
   { label: 'Sollievo',       hex: '#22D3EE', emotion_en: 'Relief' },
+  { label: 'Apatia',         hex: '#8B8680', emotion_en: 'Apathy' },
 ]
 
 export const EMPTY_CELL_LIGHT = '#ECEAE5'

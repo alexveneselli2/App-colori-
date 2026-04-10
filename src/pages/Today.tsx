@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti'
 import { useMoodStore } from '../store/useMoodStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useThemeStore } from '../store/useThemeStore'
+import { useLangStore } from '../store/useLangStore'
 import { MOOD_PALETTE } from '../constants/moods'
 import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
@@ -659,8 +660,8 @@ const PRIMARY_GROUPS: { label: string; moods: MoodColor[] }[] = [
   { label: 'Intense',  moods: [15,16,17,18,19].map(i => MOOD_PALETTE[i]) },
 ]
 const EXTRA_GROUPS: { label: string; moods: MoodColor[] }[] = [
-  { label: 'Mente Attiva', moods: MOOD_PALETTE.slice(20, 24) },
-  { label: "Zone d'Ombra", moods: MOOD_PALETTE.slice(24, 28) },
+  { label: 'Mente Attiva', moods: MOOD_PALETTE.slice(20, 25) },
+  { label: "Zone d'Ombra", moods: MOOD_PALETTE.slice(25, 30) },
 ]
 
 function PaletteGroup({ label, moods, cols, isOpen, hasSelected, selectedHex, onToggle, onSelect }: {
@@ -832,7 +833,7 @@ function PaletteWithSections({ selected, onSelect }: {
         />
       ))}
       {EXTRA_GROUPS.map(g => (
-        <PaletteGroup key={g.label} label={g.label} moods={g.moods} cols={4}
+        <PaletteGroup key={g.label} label={g.label} moods={g.moods} cols={5}
           isOpen={open[g.label]} hasSelected={g.moods.some(m => m.hex === selected?.hex)}
           selectedHex={selected?.hex}
           onToggle={() => toggle(g.label)}
@@ -1152,6 +1153,7 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
   profile: { display_name: string; username: string } | null; onClose: () => void; onSignOut: () => void
 }) {
   const { theme, setTheme } = useThemeStore()
+  const { lang, setLang } = useLangStore()
   const [reminderOn, setReminderOn]     = useState(!!localStorage.getItem('iride_reminder_time'))
   const [reminderTime, setReminderTime] = useState(localStorage.getItem('iride_reminder_time') || '20:00')
 
@@ -1212,6 +1214,26 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
                   boxShadow: theme === t ? 'var(--shadow-xs)' : undefined,
                 }}>
                 {t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : 'Auto'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Language toggle */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+            {lang === 'en' ? 'Language' : 'Lingua'}
+          </p>
+          <div className="flex p-1 gap-1 rounded-2xl" style={{ background: 'var(--color-subtle)' }}>
+            {(['it','en'] as const).map(l => (
+              <button key={l} onClick={() => setLang(l)}
+                className="flex-1 py-2 rounded-xl text-[11px] font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  background: lang === l ? 'var(--color-surface-raised)' : 'transparent',
+                  color: lang === l ? 'var(--color-foreground)' : 'var(--color-muted)',
+                  boxShadow: lang === l ? 'var(--shadow-xs)' : undefined,
+                }}>
+                {l === 'it' ? 'Italiano' : 'English'}
               </button>
             ))}
           </div>
