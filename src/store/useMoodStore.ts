@@ -20,6 +20,15 @@ import type { MoodEntry } from '../types'
 
 const FETCH_TIMEOUT = 10_000 // 10 seconds
 
+/**
+ * Limite di default per fetchEntries.
+ * 730 = 2 anni di entries (1 al giorno) — copre tutti i casi d'uso reali
+ * mantenendo il payload sotto i 200KB anche per power user.
+ * Le pagine usano questo dataset come "finestra recente". Per un export completo
+ * bisogna usare un metodo dedicato (TODO: fetchAllEntries paginato).
+ */
+const DEFAULT_ENTRIES_LIMIT = 730
+
 /** Returns a promise that rejects after `ms` milliseconds */
 function timeoutSignal(ms: number): { promise: Promise<never>; clear: () => void } {
   let id: ReturnType<typeof setTimeout>
@@ -88,7 +97,8 @@ export const useMoodStore = create<MoodState>((set, get) => ({
           .from('mood_entries')
           .select('*')
           .eq('user_id', userId)
-          .order('date', { ascending: false }),
+          .order('date', { ascending: false })
+          .limit(DEFAULT_ENTRIES_LIMIT),
         t.promise,
       ])
       t.clear()

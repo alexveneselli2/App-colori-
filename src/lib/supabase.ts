@@ -1,15 +1,44 @@
 import { createClient } from '@supabase/supabase-js'
 
-// The anon key is safe to embed — it's a public client key with RLS protection.
-// Environment variables override these defaults (e.g. for local dev with .env.local).
-const SUPABASE_URL     = 'https://hyjpdxojeildthahbxbi.supabase.co'
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5anBkeG9qZWlsZHRoYWhieGJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMjc1NTUsImV4cCI6MjA5MDkwMzU1NX0.4IYCsIr9Amm-sP5ErPCy5uSwoko7hb1o9BSv02Hcv-4'
-
-const supabaseUrl     = (import.meta.env.VITE_SUPABASE_URL     as string) || SUPABASE_URL
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || SUPABASE_ANON_KEY
+/**
+ * Credenziali Supabase — devono provenire dalle env vars.
+ * Per dev locale: crea un file `.env.local` (vedi .env.example).
+ * Per prod: imposta i GitHub Secrets `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+ */
+const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL     as string | undefined
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 export function isSupabaseConfigured(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://placeholder.supabase.co')
+  return !!(supabaseUrl && supabaseAnonKey)
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+if (!isSupabaseConfigured() && import.meta.env.PROD) {
+  console.warn(
+    '[Iride] Supabase non configurato. ' +
+    'Imposta VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY come GitHub Secrets.',
+  )
+}
+
+/**
+ * Client Supabase con flow PKCE.
+ * PKCE è obbligatorio per OAuth con HashRouter: il code arriva via query string
+ * invece che hash fragment, evitando conflitti col routing.
+ */
+export const supabase = createClient(
+  supabaseUrl ?? 'https://placeholder.supabase.co',
+  supabaseAnonKey ?? 'placeholder-anon-key',
+  {
+    auth: {
+      flowType:           'pkce',
+      detectSessionInUrl: true,
+      persistSession:     true,
+      autoRefreshToken:   true,
+      storageKey:         'iride.auth',
+    },
+  },
+)
+
+/** URL di base dell'app — usato come redirect per OAuth */
+export function getAppBaseUrl(): string {
+  return window.location.origin + import.meta.env.BASE_URL
+}
