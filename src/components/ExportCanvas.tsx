@@ -16,17 +16,20 @@ export const CANVAS_H_FEED  = 360
 export const CANVAS_H_STORY = 640
 
 interface Props {
-  entriesMap:  Map<string, string>
-  mode:        ViewMode
-  bg:          ExportBg
-  style:       ExportStyle
-  format:      ExportFormat
-  font:        ExportFont
-  cellShape:   ExportCellShape
-  cellGlow:    ExportCellGlow
-  username?:   string
-  year:        number
-  month:       number
+  entriesMap:    Map<string, string>
+  /** Set di date (YYYY-MM-DD) i cui mood sono stati aggiunti in seguito (backfill).
+   *  Le celle corrispondenti ricevono un sottile bordo che si adatta a forma e stile. */
+  backfilledSet?: Set<string>
+  mode:          ViewMode
+  bg:            ExportBg
+  style:         ExportStyle
+  format:        ExportFormat
+  font:          ExportFont
+  cellShape:     ExportCellShape
+  cellGlow:      ExportCellGlow
+  username?:     string
+  year:          number
+  month:         number
 }
 
 function needsLight(hex: string): boolean {
@@ -89,8 +92,31 @@ function cellBoxShadow(hex: string | null, glow: ExportCellGlow): string | undef
   return `0 2px 8px ${hex}45`
 }
 
+/**
+ * Restituisce uno stile di bordo per le celle aggiunte in seguito (backfilled).
+ * Il bordo:
+ * - è dashed sulle celle "art" (solo colore) → riconoscibile a colpo d'occhio
+ * - è solid + più chiaro/scuro sul colore della cella per le celle "labeled"
+ * - segue lo stesso `cellRadius` quindi si adatta a square/rounded/circle
+ *
+ * Restituisce una stringa CSS `border` da applicare allo style della cella.
+ */
+function backfillBorder(
+  hex: string | null,
+  bg: ExportBg,
+  style: ExportStyle,
+): string {
+  // Su sfondo scuro usiamo bianco semitrasparente, altrimenti nero semitrasparente.
+  const tint = bg === 'dark' ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)'
+  // Se la cella ha un colore preferiamo un tint del colore stesso per
+  // armonizzarlo con la tavolozza.
+  const stroke = hex ? `${hex}cc` : tint
+  const dash = style === 'art' ? 'dashed' : 'solid'
+  return `1.4px ${dash} ${stroke}`
+}
+
 const ExportCanvas = forwardRef<HTMLDivElement, Props>(
-  ({ entriesMap, mode, bg, style, format, font, cellShape, cellGlow, username, year, month }, ref) => {
+  ({ entriesMap, backfilledSet, mode, bg, style, format, font, cellShape, cellGlow, username, year, month }, ref) => {
     const { fg, muted, empty, line } = getPalette(bg)
     const bgStyle  = computeBgStyle(bg, entriesMap)
     const FONT     = getFontStack(font)
@@ -102,6 +128,8 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
     const getColor = (d: Date | null) => d ? (entriesMap.get(toISO(d)) ?? null) : null
     const getMoodLabel = (hex: string | null) =>
       hex ? (MOOD_PALETTE.find(m => m.hex === hex)?.label ?? null) : null
+    const isBackfilled = (d: Date | null): boolean =>
+      !!d && !!backfilledSet?.has(toISO(d))
 
     // ── HEADER ──────────────────────────────────────────────────────────────
     const getDisplayTitle = () => {
@@ -242,6 +270,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
         const color  = getColor(day)
         const cellBg = color ?? empty
         const light  = color ? needsLight(color) : false
+        const back   = isBackfilled(day)
         const textColor = (a: number) => color
           ? (light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`)
           : muted
@@ -254,6 +283,8 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
             borderRadius: cr,
             backgroundColor: cellBg,
             boxShadow: cellBoxShadow(color, cellGlow),
+            border: back ? backfillBorder(color, bg, style) : undefined,
+            boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: labeled ? 'space-between' : 'center',
@@ -321,6 +352,7 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
             const color  = getColor(day)
             const cellBg = color ?? empty
             const light  = color ? needsLight(color) : false
+            const back   = isBackfilled(day)
             const textColor = (a: number) => color
               ? (light ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`)
               : muted
@@ -331,6 +363,8 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
                 borderRadius: cr,
                 backgroundColor: cellBg,
                 boxShadow: cellBoxShadow(color, cellGlow),
+                border: back ? backfillBorder(color, bg, style) : undefined,
+                boxSizing: 'border-box',
                 display: 'flex',
                 alignItems: 'center',
                 padding: '0 18px',
@@ -390,12 +424,15 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap }}>
             {cells.map((day, i) => {
               const color = day ? getColor(day) : null
+              const back  = isBackfilled(day)
               return (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                   <div style={{
                     width: cellSz, height: cellSz, borderRadius: cr,
                     backgroundColor: day ? (color ?? empty) : 'transparent',
                     boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                    border: back ? backfillBorder(color, bg, style) : undefined,
+                    boxSizing: 'border-box',
                   }} />
                   {labeled && day && (
                     <span style={{ fontSize: 6, color: muted, fontFamily: FONT }}>{day.getDate()}</span>
@@ -445,11 +482,14 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
           }}>
             {cells.map((day, i) => {
               const color = day ? getColor(day) : null
+              const back  = isBackfilled(day)
               return (
                 <div key={i} style={{
                   borderRadius: cr,
                   backgroundColor: day ? (color ?? empty) : 'transparent',
                   boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                  border: back ? backfillBorder(color, bg, style) : undefined,
+                  boxSizing: 'border-box',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-end',
@@ -510,11 +550,14 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap: cGap }}>
                   {cells.map((day, i) => {
                     const color = day ? getColor(day) : null
+                    const back  = isBackfilled(day)
                     return (
                       <div key={i} style={{
                         width: cellSz, height: cellSz, borderRadius: cr,
                         backgroundColor: day ? (color ?? empty) : 'transparent',
                         boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                        border: back ? backfillBorder(color, bg, style) : undefined,
+                        boxSizing: 'border-box',
                       }} />
                     )
                   })}
@@ -562,11 +605,14 @@ const ExportCanvas = forwardRef<HTMLDivElement, Props>(
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, ${cellSz}px)`, gap: cGap }}>
                   {cells.map((day, i) => {
                     const color = day ? getColor(day) : null
+                    const back  = isBackfilled(day)
                     return (
                       <div key={i} style={{
                         width: cellSz, height: cellSz, borderRadius: cr,
                         backgroundColor: day ? (color ?? empty) : 'transparent',
                         boxShadow: day ? cellBoxShadow(color, cellGlow) : undefined,
+                        border: back ? backfillBorder(color, bg, style) : undefined,
+                        boxSizing: 'border-box',
                       }} />
                     )
                   })}

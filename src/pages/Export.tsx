@@ -126,6 +126,23 @@ export default function Export() {
   }, [profile, loaded, fetchEntries])
 
   const entriesMap = new Map(entries.map(e => [e.date, e.color_hex]))
+
+  /**
+   * Backfilled = entry il cui `created_at` è successivo al giorno che rappresenta.
+   * Soglia: created_at > date + 36h → consideriamo che l'utente l'abbia aggiunta
+   * a posteriori (non lo stesso giorno, qualunque sia il fuso orario).
+   */
+  const backfilledSet = new Set<string>(
+    entries
+      .filter(e => {
+        if (!e.created_at) return false
+        const created = new Date(e.created_at).getTime()
+        const dayStart = new Date(e.date + 'T00:00:00').getTime()
+        return created - dayStart > 36 * 60 * 60 * 1000
+      })
+      .map(e => e.date),
+  )
+
   const canvasH    = format === 'feed' ? CANVAS_H_FEED : CANVAS_H_STORY
   const scale      = Math.min(1, 320 / CANVAS_W)
   const previewH   = canvasH * scale
@@ -215,6 +232,7 @@ export default function Export() {
             <ExportCanvas
               ref={canvasRef}
               entriesMap={entriesMap}
+              backfilledSet={backfilledSet}
               mode={mode} bg={bg} style={style} format={format}
               font={font} cellShape={cellShape} cellGlow={cellGlow}
               username={showUsername ? profile?.username : undefined}

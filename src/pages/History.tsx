@@ -5,7 +5,9 @@ import {
   toISO, getWeekDays, getMonthCells,
   MONTH_FULL, MONTH_SHORT, DAY_INITIAL,
 } from '../lib/dateUtils'
-import { EMPTY_CELL_LIGHT } from '../constants/moods'
+import { EMPTY_CELL_LIGHT, MOOD_PALETTE } from '../constants/moods'
+import { getCustomPalette } from '../lib/customPalette'
+import type { MoodColor } from '../constants/moods'
 import DeepHistory from '../components/DeepHistory'
 import type { MoodEntry, ViewMode } from '../types'
 
@@ -20,9 +22,10 @@ function needsLight(hex: string) {
 
 export default function History() {
   const { profile } = useAuthStore()
-  const { entries, fetchEntries } = useMoodStore()
+  const { entries, fetchEntries, backfillEntry } = useMoodStore()
   const [mode, setMode]     = useState<Mode>('monthly')
   const [loaded, setLoaded] = useState(false)
+  const [backfillDate, setBackfillDate] = useState<string | null>(null)
 
   const today = new Date()
 
@@ -37,6 +40,28 @@ export default function History() {
   const entryMap     = new Map(entries.map(e => [e.date, e.color_hex]))
   const getCellColor = (d: Date | null) => d ? (entryMap.get(toISO(d)) ?? null) : null
   const todayStr     = toISO(today)
+
+  // Backfill flow: tap su un giorno passato vuoto → apre il foglio
+  const handleEmptyDayTap = (d: Date) => {
+    const iso = toISO(d)
+    if (iso >= todayStr) return // oggi e futuri vanno gestiti dal flusso normale
+    if (entryMap.has(iso)) return
+    setBackfillDate(iso)
+  }
+
+  const handleBackfillSave = async (
+    hex: string,
+    label: string | null,
+    source: 'palette' | 'custom',
+  ) => {
+    if (!profile || !backfillDate) return
+    const { error } = await backfillEntry(profile.id, backfillDate, hex, label, source)
+    if (error) {
+      console.warn('[Iride] backfill error:', error)
+      return
+    }
+    setBackfillDate(null)
+  }
 
   const tabs: { key: Mode; label: string }[] = [
     { key: 'weekly',   label: 'Sett.' },
@@ -78,17 +103,25 @@ export default function History() {
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFD000', animation: 'ping 1s infinite' }} />
           </div>
         ) : mode === 'weekly' ? (
-          <WeeklyView today={today} getCellColor={getCellColor} todayStr={todayStr} />
+          <WeeklyView today={today} getCellColor={getCellColor} todayStr={todayStr} onEmptyTap={handleEmptyDayTap} />
         ) : mode === 'monthly' ? (
-          <MonthlyView today={today} getCellColor={getCellColor} todayStr={todayStr} />
+          <MonthlyView today={today} getCellColor={getCellColor} todayStr={todayStr} onEmptyTap={handleEmptyDayTap} />
         ) : mode === 'yearly' ? (
-          <YearlyView year={today.getFullYear()} getCellColor={getCellColor} todayStr={todayStr} />
+          <YearlyView year={today.getFullYear()} getCellColor={getCellColor} todayStr={todayStr} onEmptyTap={handleEmptyDayTap} />
         ) : mode === 'timeline' ? (
           <DeepHistory entries={entries} />
         ) : (
           <DiaryView entries={entries} />
         )}
       </div>
+
+      {backfillDate && (
+        <BackfillSheet
+          date={backfillDate}
+          onClose={() => setBackfillDate(null)}
+          onSave={handleBackfillSave}
+        />
+      )}
     </div>
   )
 }
@@ -278,8 +311,9 @@ function DiaryView({ entries }: { entries: MoodEntry[] }) {
 
 // ─── Grid sub-views ──────────────────────────────────────────────────────────
 
-function WeeklyView({ today, getCellColor, todayStr }: {
+function WeeklyView({ today, getCellColor, todayStr, onEmptyTap }: {
   today: Date; getCellColor: (d: Date | null) => string | null; todayStr: string
+  onEmptyTap: (d: Date) => void
 }) {
   const days = getWeekDays(today)
   return (
@@ -292,14 +326,29 @@ function WeeklyView({ today, getCellColor, todayStr }: {
           <p key={i} className="text-center text-[9px] text-muted uppercase tracking-wider font-medium">{d}</p>
         ))}
         {days.map((day, i) => {
-          const color   = getCellColor(day)
-          const isToday = toISO(day) === todayStr
+          const color    = getCellColor(day)
+          const iso      = toISO(day)
+          const isToday  = iso === todayStr
+          const isPast   = iso < todayStr
+          const editable = !color && isPast
           return (
             <div key={i} className="space-y-1.5">
-              <div
-                className={`aspect-square rounded-2xl transition-colors ${isToday ? 'ring-2 ring-foreground/30 ring-offset-2 ring-offset-surface' : ''}`}
-                style={{ backgroundColor: color ?? EMPTY_CELL_LIGHT }}
-              />
+              <button
+                type="button"
+                disabled={!editable}
+                onClick={() => editable && onEmptyTap(day)}
+                aria-label={editable ? `Aggiungi colore al ${day.getDate()}` : undefined}
+                className={`block w-full aspect-square rounded-2xl transition-all ${isToday ? 'ring-2 ring-foreground/30 ring-offset-2 ring-offset-surface' : ''} ${editable ? 'active:scale-95 cursor-pointer' : 'cursor-default'}`}
+                style={{
+                  backgroundColor: color ?? EMPTY_CELL_LIGHT,
+                  border: editable ? '1.5px dashed var(--color-muted)' : 'none',
+                  padding: 0,
+                }}
+              >
+                {editable && (
+                  <span style={{ display: 'block', fontSize: 14, color: 'var(--color-muted)', lineHeight: 1 }}>+</span>
+                )}
+              </button>
               <p className="text-center text-[9px] text-muted">{day.getDate()}</p>
             </div>
           )
@@ -309,8 +358,9 @@ function WeeklyView({ today, getCellColor, todayStr }: {
   )
 }
 
-function MonthlyView({ today, getCellColor, todayStr }: {
+function MonthlyView({ today, getCellColor, todayStr, onEmptyTap }: {
   today: Date; getCellColor: (d: Date | null) => string | null; todayStr: string
+  onEmptyTap: (d: Date) => void
 }) {
   const year  = today.getFullYear()
   const month = today.getMonth()
@@ -326,14 +376,29 @@ function MonthlyView({ today, getCellColor, todayStr }: {
         ))}
         {cells.map((day, i) => {
           if (!day) return <div key={i} />
-          const color   = getCellColor(day)
-          const isToday = toISO(day) === todayStr
+          const color    = getCellColor(day)
+          const iso      = toISO(day)
+          const isToday  = iso === todayStr
+          const isPast   = iso < todayStr
+          const editable = !color && isPast
           return (
             <div key={i} className="space-y-0.5">
-              <div
-                className={`aspect-square rounded-xl transition-colors ${isToday ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-surface' : ''}`}
-                style={{ backgroundColor: color ?? EMPTY_CELL_LIGHT }}
-              />
+              <button
+                type="button"
+                disabled={!editable}
+                onClick={() => editable && onEmptyTap(day)}
+                aria-label={editable ? `Aggiungi colore al ${day.getDate()}` : undefined}
+                className={`block w-full aspect-square rounded-xl transition-all ${isToday ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-surface' : ''} ${editable ? 'active:scale-95 cursor-pointer' : 'cursor-default'}`}
+                style={{
+                  backgroundColor: color ?? EMPTY_CELL_LIGHT,
+                  border: editable ? '1.2px dashed var(--color-muted)' : 'none',
+                  padding: 0,
+                }}
+              >
+                {editable && (
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--color-muted)', lineHeight: 1 }}>+</span>
+                )}
+              </button>
               <p className="text-center text-[8px] text-muted">{day.getDate()}</p>
             </div>
           )
@@ -343,8 +408,9 @@ function MonthlyView({ today, getCellColor, todayStr }: {
   )
 }
 
-function YearlyView({ year, getCellColor, todayStr }: {
+function YearlyView({ year, getCellColor, todayStr, onEmptyTap }: {
   year: number; getCellColor: (d: Date | null) => string | null; todayStr: string
+  onEmptyTap: (d: Date) => void
 }) {
   return (
     <div className="space-y-5">
@@ -358,13 +424,25 @@ function YearlyView({ year, getCellColor, todayStr }: {
               <div className="grid grid-cols-7 gap-1">
                 {cells.map((day, i) => {
                   if (!day) return <div key={i} className="aspect-square" />
-                  const color   = getCellColor(day)
-                  const isToday = toISO(day) === todayStr
+                  const color    = getCellColor(day)
+                  const iso      = toISO(day)
+                  const isToday  = iso === todayStr
+                  const isPast   = iso < todayStr
+                  const editable = !color && isPast
                   return (
-                    <div
+                    <button
                       key={i}
-                      className={`aspect-square rounded-md ${isToday ? 'ring-1 ring-foreground/30' : ''}`}
-                      style={{ backgroundColor: color ?? EMPTY_CELL_LIGHT }}
+                      type="button"
+                      disabled={!editable}
+                      onClick={() => editable && onEmptyTap(day)}
+                      aria-label={editable ? `Aggiungi colore al ${day.getDate()} ${MONTH_SHORT[m]}` : undefined}
+                      className={`aspect-square rounded-md ${isToday ? 'ring-1 ring-foreground/30' : ''} ${editable ? 'active:scale-90' : ''}`}
+                      style={{
+                        backgroundColor: color ?? EMPTY_CELL_LIGHT,
+                        border: editable ? '1px dashed var(--color-muted)' : 'none',
+                        padding: 0,
+                        cursor: editable ? 'pointer' : 'default',
+                      }}
                     />
                   )
                 })}
@@ -372,6 +450,152 @@ function YearlyView({ year, getCellColor, todayStr }: {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Backfill sheet ──────────────────────────────────────────────────────────
+function BackfillSheet({ date, onClose, onSave }: {
+  date: string
+  onClose: () => void
+  onSave: (hex: string, label: string | null, source: 'palette' | 'custom') => void | Promise<void>
+}) {
+  const [selected, setSelected] = useState<{ hex: string; label: string | null; source: 'palette' | 'custom' } | null>(null)
+  const [saving, setSaving]     = useState(false)
+  const customs = useMemo(() => getCustomPalette(), [])
+
+  const d = new Date(date + 'T12:00:00')
+  const niceDate = `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTH_FULL[d.getMonth()]} ${d.getFullYear()}`
+
+  const handleConfirm = async () => {
+    if (!selected || saving) return
+    setSaving(true)
+    await onSave(selected.hex, selected.label, selected.source)
+    setSaving(false)
+  }
+
+  const light = selected ? needsLight(selected.hex) : false
+
+  return (
+    <div
+      className="fixed inset-0 flex items-end justify-center animate-fade-in"
+      style={{ zIndex: 100, background: 'rgba(28,25,23,0.55)', backdropFilter: 'blur(18px)', padding: '0 0 max(env(safe-area-inset-bottom),16px) 0' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md mx-4 rounded-3xl overflow-hidden animate-slide-up"
+        style={{ background: 'var(--color-surface-raised)', boxShadow: 'var(--shadow-lg)', maxHeight: '85dvh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{
+          height: 110,
+          background: selected ? selected.hex : 'linear-gradient(135deg, #F2EDE5, #E8E2D8)',
+          padding: '0 20px 14px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+        }}>
+          <p style={{
+            fontSize: 11, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase',
+            color: selected ? (light ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)') : 'var(--color-muted)',
+          }}>
+            Aggiungi colore al
+          </p>
+          <p style={{
+            fontSize: 19, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1,
+            color: selected ? (light ? '#fff' : '#1C1917') : 'var(--color-foreground)',
+          }}>
+            {niceDate}
+          </p>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <p className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
+            Questo colore verrà segnato come <strong>aggiunto in seguito</strong> e nelle esportazioni avrà un sottile bordo per distinguerlo dai giorni registrati nel momento.
+          </p>
+
+          {/* Palette */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+              Palette
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 8 }}>
+              {MOOD_PALETTE.map((m: MoodColor) => {
+                const isSel = selected?.hex === m.hex && selected.source === 'palette'
+                return (
+                  <button
+                    key={m.hex}
+                    type="button"
+                    onClick={() => setSelected({ hex: m.hex, label: m.label, source: 'palette' })}
+                    aria-label={m.label}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                  >
+                    <div style={{
+                      width: '100%', paddingTop: '100%', borderRadius: '50%',
+                      backgroundColor: m.hex,
+                      transform: isSel ? 'scale(1.12)' : 'scale(1)',
+                      boxShadow: isSel
+                        ? `0 0 0 2px var(--color-surface-raised), 0 0 0 3.5px ${m.hex}`
+                        : `0 1px 3px ${m.hex}40`,
+                      transition: 'all 0.18s',
+                    }} />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Custom palette */}
+          {customs.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+                I tuoi colori
+              </p>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {customs.map(c => {
+                  const isSel = selected?.hex === c.hex && selected.source === 'custom' && selected.label === c.label
+                  return (
+                    <button
+                      key={`${c.hex}-${c.label}`}
+                      type="button"
+                      onClick={() => setSelected({ hex: c.hex, label: c.label, source: 'custom' })}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '5px 10px', borderRadius: 100,
+                        border: `1.5px solid ${isSel ? c.hex : 'var(--color-subtle)'}`,
+                        background: isSel ? `${c.hex}18` : 'var(--color-surface)',
+                        color: 'var(--color-foreground)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: c.hex }} />
+                      {c.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-[14px] font-semibold active:scale-[0.98]"
+              style={{ border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
+              Annulla
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={!selected || saving}
+              className="flex-[2] py-3 rounded-2xl text-[14px] font-extrabold active:scale-[0.98] disabled:opacity-50"
+              style={{
+                background: selected ? selected.hex : 'var(--color-subtle)',
+                color: selected ? (light ? '#fff' : '#1C1917') : 'var(--color-muted)',
+                boxShadow: selected ? `0 6px 20px ${selected.hex}55` : undefined,
+              }}
+            >
+              {saving ? '···' : 'Aggiungi'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
