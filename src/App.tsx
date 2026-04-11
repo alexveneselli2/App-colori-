@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/useAuthStore'
 import { isDemoMode, getDemoProfile } from './lib/demo'
+import { startReminderScheduler } from './lib/reminder'
 import Splash from './pages/Splash'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
@@ -35,6 +36,9 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(() => !isDemoMode())
 
   useEffect(() => {
+    // Avvia lo scheduler del reminder appena l'app si monta
+    startReminderScheduler()
+
     if (isDemoMode()) {
       const p = getDemoProfile()
       if (p) setProfile(p)

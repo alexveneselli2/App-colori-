@@ -62,6 +62,21 @@ interface MoodState {
     opts?: SaveOptions
   ) => Promise<{ error: string | null }>
 
+  /**
+   * Inserisce un mood per un giorno passato rimasto vuoto.
+   * Non può sovrascrivere un giorno già registrato (UNIQUE su user_id+date).
+   * `created_at` resta now() — il marker "backfilled" si calcola lato client
+   * confrontando created_at con date.
+   */
+  backfillEntry: (
+    userId: string,
+    date: string,
+    colorHex: string,
+    moodLabel: string | null,
+    source: 'palette' | 'custom',
+    opts?: SaveOptions
+  ) => Promise<{ error: string | null }>
+
   beginGrace: (
     userId: string,
     colorHex: string,
@@ -188,6 +203,69 @@ export const useMoodStore = create<MoodState>((set, get) => ({
 
     const entry = data as MoodEntry
     set((s: MoodState) => ({ todayEntry: entry, entries: [entry, ...s.entries] }))
+    return { error: null }
+  },
+
+  backfillEntry: async (userId, date, colorHex, moodLabel, source, opts: SaveOptions = {}) => {
+    // Refuse if a record for that date already exists in memory
+    if (get().entries.some(e => e.date === date)) {
+      return { error: 'Hai già un colore per quel giorno.' }
+    }
+    if (date === todayISO()) {
+      return { error: 'Per oggi usa il flusso normale.' }
+    }
+    if (date > todayISO()) {
+      return { error: 'Non puoi inserire un colore nel futuro.' }
+    }
+
+    if (isDemoMode()) {
+      const entry = saveDemoEntry({
+        user_id:        DEMO_USER_ID,
+        date,
+        color_hex:      colorHex,
+        mood_label:     moodLabel,
+        note:           opts.note ?? null,
+        tags:           opts.tags ?? null,
+        source,
+        locked:         true,
+        latitude:       opts.latitude ?? null,
+        longitude:      opts.longitude ?? null,
+        location_label: opts.location_label ?? null,
+      })
+      if (!entry) return { error: 'Hai già un colore per quel giorno.' }
+      set((s: MoodState) => ({
+        entries: [entry as MoodEntry, ...s.entries].sort((a, b) => b.date.localeCompare(a.date)),
+      }))
+      return { error: null }
+    }
+
+    const { data, error } = await supabase
+      .from('mood_entries')
+      .insert({
+        user_id:        userId,
+        date,
+        color_hex:      colorHex,
+        mood_label:     moodLabel,
+        note:           opts.note ?? null,
+        tags:           opts.tags ?? null,
+        source,
+        locked:         true,
+        latitude:       opts.latitude ?? null,
+        longitude:      opts.longitude ?? null,
+        location_label: opts.location_label ?? null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === '23505') return { error: 'Hai già un colore per quel giorno.' }
+      return { error: error.message }
+    }
+
+    const entry = data as MoodEntry
+    set((s: MoodState) => ({
+      entries: [entry, ...s.entries].sort((a, b) => b.date.localeCompare(a.date)),
+    }))
     return { error: null }
   },
 

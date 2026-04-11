@@ -5,6 +5,9 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useThemeStore } from '../store/useThemeStore'
 import { useLangStore } from '../store/useLangStore'
 import { MOOD_PALETTE } from '../constants/moods'
+import { getCustomPalette, addCustomColor, removeCustomColor } from '../lib/customPalette'
+import type { SavedCustomColor } from '../lib/customPalette'
+import { getReminderTime, setReminderTime as persistReminderTime } from '../lib/reminder'
 import { MONTH_FULL, getWeekDays, toISO, DAY_INITIAL } from '../lib/dateUtils'
 import { getGraceTimeLeftMs } from '../lib/gracePeriod'
 import type { GraceEntry } from '../lib/gracePeriod'
@@ -851,6 +854,8 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
   onUse: (label: string) => void
 }) {
   const [sentiment, setSentiment] = useState('')
+  const [saved, setSaved] = useState<SavedCustomColor[]>(() => getCustomPalette())
+  const [savedFlash, setSavedFlash] = useState(false)
   const light = needsLightText(customHex)
   const ok = sentiment.trim().length >= 2
 
@@ -859,8 +864,67 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
     ? MOOD_PALETTE.filter(m => m.label.toLowerCase().startsWith(sentiment.toLowerCase())).slice(0, 3)
     : []
 
+  const handleSave = () => {
+    if (!ok) return
+    const next = addCustomColor(customHex, sentiment.trim())
+    setSaved(next)
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 1500)
+  }
+
+  const handleRemoveSaved = (c: SavedCustomColor) => {
+    setSaved(removeCustomColor(c.hex, c.label))
+  }
+
+  const handlePickSaved = (c: SavedCustomColor) => {
+    setCustomHex(c.hex)
+    setSentiment(c.label)
+  }
+
   return (
     <div className="space-y-4">
+      {/* Saved custom palette strip */}
+      {saved.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: 'var(--color-muted)' }}>
+            I tuoi colori salvati
+          </p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {saved.map(c => (
+              <div
+                key={`${c.hex}-${c.label}`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '5px 6px 5px 10px', borderRadius: 100,
+                  border: `1.5px solid ${c.hex}55`, background: `${c.hex}14`,
+                  color: 'var(--color-foreground)', fontSize: 12, fontWeight: 600,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handlePickSaved(c)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 0 }}
+                  aria-label={`Usa ${c.label}`}
+                >
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: c.hex, display: 'inline-block' }} />
+                  {c.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSaved(c)}
+                  aria-label={`Rimuovi ${c.label}`}
+                  style={{ background: 'none', border: 'none', padding: '0 4px', cursor: 'pointer', color: 'var(--color-muted)', display: 'flex', alignItems: 'center' }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-3xl overflow-hidden"
         style={{ border: `2px solid ${customHex}40`, background: `linear-gradient(135deg, ${customHex}12, ${customHex}05)` }}>
 
@@ -926,13 +990,31 @@ function CustomColorTab({ customHex, setCustomHex, onUse }: {
             )}
           </div>
 
-          <button
-            onClick={() => { if (ok) onUse(sentiment.trim()) }}
-            disabled={!ok}
-            className="w-full py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97] disabled:opacity-40"
-            style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
-            Usa questo colore →
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!ok}
+              aria-label="Salva nei tuoi colori"
+              className="py-3.5 px-4 rounded-2xl text-[12px] font-semibold transition-all active:scale-[0.97] disabled:opacity-40"
+              style={{
+                background: 'transparent',
+                color: 'var(--color-foreground)',
+                border: `1.5px solid ${customHex}55`,
+                flexShrink: 0,
+                minWidth: 96,
+              }}
+            >
+              {savedFlash ? 'Salvato ✓' : 'Salva'}
+            </button>
+            <button
+              onClick={() => { if (ok) onUse(sentiment.trim()) }}
+              disabled={!ok}
+              className="flex-1 py-3.5 rounded-2xl text-[14px] font-bold transition-all active:scale-[0.97] disabled:opacity-40"
+              style={{ background: customHex, color: light ? '#fff' : '#1C1917', boxShadow: `0 6px 20px ${customHex}50` }}>
+              Usa questo colore →
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1154,21 +1236,36 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
 }) {
   const { theme, setTheme } = useThemeStore()
   const { lang, setLang } = useLangStore()
-  const [reminderOn, setReminderOn]     = useState(!!localStorage.getItem('iride_reminder_time'))
-  const [reminderTime, setReminderTime] = useState(localStorage.getItem('iride_reminder_time') || '20:00')
+  const [reminderOn, setReminderOn]     = useState(!!getReminderTime())
+  const [reminderTime, setReminderTime] = useState(getReminderTime() ?? '20:00')
+  const [permDenied, setPermDenied]     = useState(
+    typeof Notification !== 'undefined' && Notification.permission === 'denied',
+  )
 
   const handleReminderToggle = async () => {
     if (reminderOn) {
-      localStorage.removeItem('iride_reminder_time')
+      persistReminderTime(null)
       setReminderOn(false)
-    } else {
-      if (!('Notification' in window)) return
-      const perm = await Notification.requestPermission()
-      if (perm === 'granted') {
-        localStorage.setItem('iride_reminder_time', reminderTime)
-        setReminderOn(true)
-      }
+      return
     }
+    // Try to get notification permission, but don't block the toggle: anche
+    // senza permission il reminder visivo (CustomEvent) funziona quando l'app
+    // è aperta.
+    if ('Notification' in window && Notification.permission === 'default') {
+      try {
+        const perm = await Notification.requestPermission()
+        if (perm === 'denied') setPermDenied(true)
+      } catch { /* ignore */ }
+    } else if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+      setPermDenied(true)
+    }
+    persistReminderTime(reminderTime)
+    setReminderOn(true)
+  }
+
+  const handleTimeChange = (next: string) => {
+    setReminderTime(next)
+    if (reminderOn) persistReminderTime(next)
   }
 
   return (
@@ -1258,17 +1355,21 @@ function ProfileSheet({ profile, onClose, onSignOut }: {
             </div>
           </div>
           {reminderOn && (
-            <select value={reminderTime}
-              onChange={e => { setReminderTime(e.target.value); localStorage.setItem('iride_reminder_time', e.target.value) }}
-              className="w-full px-4 py-2.5 rounded-xl text-[13px] focus:outline-none mt-2"
-              style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}>
-              {Array.from({ length: 33 }, (_, i) => {
-                const mins = 7*60 + i*30
-                const h = String(Math.floor(mins/60)).padStart(2,'0')
-                const m = String(mins%60).padStart(2,'0')
-                return <option key={`${h}:${m}`} value={`${h}:${m}`}>{h}:{m}</option>
-              })}
-            </select>
+            <div className="mt-2 space-y-1.5">
+              <input
+                type="time"
+                value={reminderTime}
+                onChange={e => handleTimeChange(e.target.value)}
+                aria-label="Orario del reminder"
+                className="w-full px-4 py-2.5 rounded-xl text-[13px] focus:outline-none"
+                style={{ background: 'var(--color-surface)', border: '1.5px solid var(--color-subtle)', color: 'var(--color-foreground)' }}
+              />
+              {permDenied && (
+                <p className="text-[10px]" style={{ color: 'var(--color-muted)' }}>
+                  Permesso notifiche bloccato dal browser. Puoi attivarlo dalle impostazioni del sito.
+                </p>
+              )}
+            </div>
           )}
         </div>
 

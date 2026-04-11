@@ -102,8 +102,8 @@ export function getDemoTodayEntry(): DemoEntry | null {
 }
 
 export function saveDemoEntry(entry: Omit<DemoEntry, 'id' | 'created_at'>): DemoEntry | null {
-  const today = toISOLocal(new Date())
-  const existing = getDemoEntries().find(e => e.date === today)
+  // Reject duplicates for the entry's date (works both for "oggi" and per il backfill).
+  const existing = getDemoEntries().find(e => e.date === entry.date)
   if (existing) return null
 
   const newEntry: DemoEntry = {
